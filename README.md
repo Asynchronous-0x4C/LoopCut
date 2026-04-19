@@ -1,7 +1,20 @@
-# Tauri + Vanilla TS
+# LoopCut
 
-This template should help get you started developing with Tauri in vanilla HTML, CSS and Typescript.
+-_永久にループする空間。あなたはこのループを断ち切ることができるのか_-
 
-## Recommended IDE Setup
+![Title](./img/title.png)
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+## ゴーストを駆使して進め
+
+ループする空間にいるのはあなただけではありません。\
+時に実体を持ち、時に実体のないゴーストを導き脱出への足掛かりへとしましょう。
+
+## プレイ時の注意
+- このゲームはキーボードを操作に使用します。キーボードのある環境でプレイしてください。
+- ブラウザをリロードすると進捗がリセットされます。
+- 制作者は355mlのエナドリを服用して15時間コードを書き続けたため、わかりにくい動作やバグがあるかもしれません。もし発見した場合は見なかったことにしてください。
+
+[プレイはこちら](https://asynchronous-0x4c.github.io/LoopCut/)
+
+![Playing](./img/playing.png)
+![Playing](./img/playing2.png)
