@@ -1,0 +1,37 @@
+{
+  "steps": 10,
+  "tiles": [
+    " ##c###",
+    " #   #",
+    "S##Ga#",
+    " #   #",
+    " # # #",
+    " #b###"
+  ],
+  "objects": [
+    {
+      "type": "laser",
+      "id": "a",
+      "position": {
+        "x": 1.5,
+        "y": 2
+      }
+    },
+    {
+      "type": "laser",
+      "id": "b",
+      "position": {
+        "x": 4.5,
+        "y": 2
+      }
+    },
+    {
+      "type": "laser",
+      "id": "c",
+      "position": {
+        "x": 1.5,
+        "y": 5
+      }
+    }
+  ]
+}
