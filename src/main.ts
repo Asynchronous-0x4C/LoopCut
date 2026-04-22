@@ -32,7 +32,6 @@ const resize = () => {
     background: "#e6e6e6"
   });
 
-  app.canvas.style.scale = `${1/window.devicePixelRatio}`
   document.body.appendChild(app.canvas);
 
   initEvent();

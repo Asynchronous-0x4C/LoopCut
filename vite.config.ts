@@ -28,6 +28,7 @@ export default defineConfig(async () => ({
     },
   },
   build: {
-    outDir: "docs"
-  }
+    outDir: "docs",
+  },
+  base: "./"
 }));
