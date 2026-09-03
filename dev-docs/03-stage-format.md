@@ -1,7 +1,8 @@
 # 03. ステージ JSON 仕様とステージ追加手順
 
 対象: [src/game/stage/stages/](../src/game/stage/stages/) 配下の `*.json`。
-パーサの実装は [stage.ts:66-150](../src/game/stage/stage.ts#L66-L150)。
+パーサの実装は [stage.ts](../src/game/stage/stage.ts) の `reset()`、
+文字 → タイルの対応は [tiles.ts](../src/game/stage/tiles.ts) の `tileRegistry`。
 
 ## 1. スキーマ
 
@@ -47,8 +48,8 @@ TypeScript の型は [src/game/stage/stagedata.ts](../src/game/stage/stagedata.t
 
 ### 制約（守らないと壊れる / 崩れる）
 
-1. **`S` は必ず 1 個入れる。** 無いとプレイヤー生成時にクラッシュする
-   （[stage.ts:128](../src/game/stage/stage.ts#L128) で `start!` が `undefined` になる）。
+1. **`S` は必ず 1 個入れる。** 無い場合は `(0,0)` から開始する扱いになり、
+   `bun run verify` と dev サーバがエラーを出す。
    複数書いた場合は最後に見つかったものが採用される。
 2. **サイズ上限**: `gap = 60px`、画面 1280x720。
    実際に使っている範囲の幅は 21 列、高さは 12 行が物理的な限界。
@@ -78,7 +79,8 @@ TypeScript の型は [src/game/stage/stagedata.ts](../src/game/stage/stagedata.t
 
 ### type を増やしたい場合
 
-[stage.ts:107-117](../src/game/stage/stage.ts#L107-L117) の `switch(v.type)` に分岐を足す。
+[objects.ts](../src/game/stage/objects.ts) の `objectRegistry` に 1 行足し、
+[stagedata.ts](../src/game/stage/stagedata.ts) の `OBJECT_TYPES` にも足す。
 手順は [04-recipes.md](04-recipes.md#レシピ-b-新しいオブジェクトギミックを追加する) を参照。
 
 ## 4. ステージの追加手順

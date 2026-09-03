@@ -294,7 +294,7 @@ this.scenes.set("fin", new Fin(this));
 
 ### C-4. 遷移元をつなぐ
 
-タイトルの遷移先は [title.ts:66-70](../src/game/title/title.ts#L66-L70) にハードコードされている。
+タイトルの遷移先は [title.ts](../src/game/title/title.ts) の `update()` にハードコードされている。
 ここを `this.game.setScene("select")` に変える。
 
 ### C-5. 確認
