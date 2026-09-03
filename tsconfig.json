@@ -15,8 +15,11 @@
 
     /* Linting */
     "strict": true,
-    "noUnusedLocals": false,
+    // 未使用ローカルは実バグ（L-1）を隠していたので有効にしている。
+    // noUnusedParameters は update(t: Ticker) のような PixiJS 側に合わせた
+    // 未使用引数が多く、ノイズのほうが大きいので false のまま。
     "noUnusedParameters": false,
+    "noUnusedLocals": true,
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src", "scripts"]

@@ -6,7 +6,7 @@
 ## 1. 三原則
 
 1. **画像を使わない。** すべて `Graphics` によるベクター描画。
-   例外はタイトルロゴのみ（`?raw` で読んだ SVG を `Graphics.svg()` に流す、[title.ts:5](../src/game/title/title.ts#L5)）。
+   例外はタイトルロゴのみ（`?raw` で読んだ SVG を `Graphics.svg()` に流す、[title.ts](../src/game/title/title.ts)）。
 2. **すべての図形は「影 → 本体」の 2 回描き。** これが紙のような浮遊感を作っている（§3）。
 3. **色は 1 系統のグレー + 差し色の赤/水色のみ。** 新しい色相を足さない（§2）。
 
@@ -14,8 +14,8 @@
 
 | 用途 | 色 | 備考 |
 |---|---|---|
-| キャンバス背景 | `#e6e6e6` | [main.ts:32](../src/main.ts#L32) |
-| ステージ背景 | `#f0f0f0` → `#e0e0e0` | 左上から右下への線形グラデーション [stage.ts:73-88](../src/game/stage/stage.ts#L73-L88) |
+| キャンバス背景 | `#e6e6e6` | [main.ts](../src/main.ts) |
+| ステージ背景 | `#f0f0f0` → `#e0e0e0` | 左上から右下への線形グラデーション（`Stage.createBackground()`） |
 | タイルの線 | `#333333` | stroke 幅 3 |
 | プレイヤー / ゴースト | `#646464` | |
 | テキスト | `#646464` (`0x646464`) | |
@@ -51,7 +51,7 @@ g.stroke({ width: 3, color: "#333333", alpha: 0.8 });
 - 影を**先に**描く（後から描いた本体が上に乗る）。
 - テキストは Pixi の `dropShadow`（`distance: 3`）で同じ効果を出す。
 - `ParticleContainer` を使う UI ドットは、**同じ粒を 2 セット**用意して片方を +3 ずらしている
-  （[ui.ts:27-39](../src/game/ui/ui.ts#L27-L39)）。
+  （[ui.ts](../src/game/ui/ui.ts)）。テクスチャは 1 枚だけ作って使い回す。
 
 ### alpha の目安
 
@@ -68,7 +68,7 @@ g.stroke({ width: 3, color: "#333333", alpha: 0.8 });
 | 対象 | 値 |
 |---|---|
 | 論理解像度 | 1280 x 720（中央は 640, 360） |
-| グリッド間隔 `gap` | 60px（[field.ts:39](../src/game/stage/field.ts#L39)） |
+| グリッド間隔 `gap` | 60px（[field.ts](../src/game/stage/field.ts) の `Field.gap`） |
 | 通常タイル | 半径 10 の円、stroke 3 |
 | スタート / ゴール | 20x20 角丸 4 の枠 + 内側に赤い印（三角 / 8x8 の四角） |
 | スイッチ | 通常タイル + 半径 5 の塗り円 |
@@ -87,7 +87,9 @@ g.stroke({ width: 3, color: "#333333", alpha: 0.8 });
 イージング関数は使わない。毎フレーム次の形で書く。
 
 ```ts
-v += (target - v) * k;
+import { damp } from "../../common/interpolate";
+
+v += (target - v) * damp(k, t.deltaTime);
 ```
 
 | 対象 | `k` |
@@ -97,12 +99,15 @@ v += (target - v) * k;
 | UI ドットの alpha | 0.5 |
 | タイトル文字のフェード | 0.5 |
 
-> `Ticker.deltaTime` を掛けていないためフレームレート依存だが、**既存と揃えることを優先する**。
-> 直すなら全体を一括で（[07-roadmap.md](07-roadmap.md) フェーズ 3）。
+`damp()`（[src/common/interpolate.ts](../src/common/interpolate.ts)）は
+`1 - (1 - k) ** deltaTime` を返す。60fps（`deltaTime === 1`）では `k` そのものなので
+**従来の見た目は変わらず**、高リフレッシュレートでも同じ速さで収束する。
+
+> **新しい補間を書くときは必ず `damp()` を通すこと。** 生の係数を掛けるとフレームレート依存に戻る。
 
 ### 5.2 入退場は「マンハッタン距離の波」
 
-[stageview.ts:36-54](../src/game/stage/stageview.ts#L36-L54)。
+[stageview.ts](../src/game/stage/stageview.ts) の `update()`。
 
 ```ts
 const _m = tile.x + tile.y - field.manhattan.min;      // 左上からの距離
@@ -124,13 +129,13 @@ const x = Math.max(0, time - 45);
 alpha = Math.ceil(Math.sin(x * Math.PI * 0.5)) * Math.ceil(x / 3);
 ```
 
-タイトルロゴの退場も同じ式（[title.ts:63](../src/game/title/title.ts#L63)）。
+タイトルロゴの退場も同じ式（[title.ts](../src/game/title/title.ts)）。
 **「実体が明滅する」という世界観の表現なので、新しい実体系の要素にも適用すること。**
 
 ## 6. レイアウトの決まり
 
 - フィールドは `Field.offset` で画面中央に寄せられる（タイル追加のたびに再計算）。
-  → **ステージのタイル配置は左上詰めで書く**（[03-stage-format.md](03-stage-format.md#制約守らないと壊れる--崩れる)）。
+  タイルの絶対座標ではなく、実際に使っている範囲の中心が画面中央に来る。
 - 操作説明テキストは左上 `(5, 30)`。
 - 残歩数ドットは上端中央、`y = 40`。
 - タイトル: ロゴ `(640, 200)`、「キーを押してスタート」`(640, 680)`。

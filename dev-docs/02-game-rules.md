@@ -151,12 +151,20 @@ Right: x += 0.5    Left:  x -= 0.5
 ## 6. 詰み判定 (`isJammed`)
 
 [field.ts](../src/game/stage/field.ts) の `isJammed()`。
-**隣接 4 方向すべてに「存在してかつ `canEnter()` なタイル」が無ければ詰み。**
 
-> ⚠️ **既知のバグ**: レーザーで塞がれている方向を「通れる」と誤判定する。
-> 結果、レーザーに完全包囲された状態では詰み判定が出ず、プレイヤーはレーザーに突っ込んで
-> ループを終わらせるしかない。詳細は [06-known-issues.md の L-1](06-known-issues.md)。
-> **ステージ設計時は「詰みはタイルの `Used` だけで決まる」前提で組むこと。**
+```
+どの方向にも「進入できるタイルがあり、かつその辺にアクティブなレーザーが無い」が
+成り立たなければ詰み
+```
+
+つまり詰みは次の 3 つで決まる。
+
+- 隣にタイルが無い
+- 隣のタイルが `canEnter()` でない（`Used` など）
+- 隣へ行く辺がアクティブなレーザーで塞がれている
+
+> フェーズ 3 より前は 3 つ目が効いておらず、レーザーに完全包囲されても詰み判定が出なかった
+> （[06-known-issues.md の L-1](06-known-issues.md)、修正済み）。
 
 ## 7. 1 ターンの処理順序
 
@@ -238,13 +246,13 @@ laser a: x=7.5, y=0  … タイル(7,0) と (8,0) の間 ＝ ゴールの直前
 | 1 | 1 | `DDDD` |
 | 2 | 2 | `AAAADDDD` |
 | 3 | 2 | `DDDWADS` |
-| 4 | 2 | `SDWDSAA` |
+| 4 | 2 | `DSDWAA` |
 | 5 | 2 | `DSSDWDSDDDDDDDDDD` |
 | 6 | 2 | `DSSDDWWADSSDSS` |
-| 7 | 4 | `DWWDDDDSSADSSSDDWDWWDDDDSSADDD` |
+| 7 | 4 | `DWWDDDDDDSSSDDWDWWDDDDSSADDD` |
 
-**ルールを変えるとこの表が変わる。** 期待値は
-[scripts/verify-stages.ts](../scripts/verify-stages.ts) の `EXPECTED_LOOPS` に固定してあり、
+**回帰検出の対象は「最小ループ数」だけ**で、手順の文字列は探索順に依存するので契約ではない。
+期待値は [scripts/verify-stages.ts](../scripts/verify-stages.ts) の `EXPECTED_LOOPS` に固定してあり、
 ずれると `bun run verify` が落ちる。意図した変更なら期待値とこの表を更新すること。
 
 > ステージ 2 の `AAAADDDD` は §9 で手で導いた解法とまったく同じ。

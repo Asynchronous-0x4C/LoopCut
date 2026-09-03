@@ -1,5 +1,6 @@
 import { Graphics, Ticker } from "pixi.js";
 import { ObservableValue } from "../../common/observable";
+import { damp } from "../../common/interpolate";
 
 export enum TileState {
   Used,
@@ -79,7 +80,7 @@ export class Tile {
   }
 
   update(t: Ticker) {
-    this.g.alpha += (this.targetAlpha - this.g.alpha) * 0.4;
+    this.g.alpha += (this.targetAlpha - this.g.alpha) * damp(0.4, t.deltaTime);
   }
 }
 

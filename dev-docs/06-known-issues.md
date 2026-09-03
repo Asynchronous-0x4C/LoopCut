@@ -1,6 +1,6 @@
 # 06. 既知の問題と技術的負債
 
-> 対象: `plus` ブランチ フェーズ 2.5 完了時点。
+> 対象: `plus` ブランチ フェーズ 3 完了時点。
 > 各項目に ID を振っているので、コミットメッセージや他の文書から `L-1` の形で参照すること。
 > **修正したら末尾の「解決済み」節へ移すこと。**
 
@@ -15,52 +15,6 @@
 ---
 
 ## 🔴 バグ
-
-### L-1 — `isJammed` がレーザーをまったく見ていない
-**場所**: [field.ts](../src/game/stage/field.ts) の `isJammed()`
-
-```ts
-const lx = x + o.x * 0.5;
-const ly = y + o.y * 0.5;
-const l = this.lasers.get(`${x},${y}`);   // ← lx, ly ではなく x, y を使っている
-```
-
-コードには `TODO(L-1)` コメントを入れてある。
-
-タイル座標は整数、レーザーのキーは半整数なので `l` は**常に `undefined`**。
-結果、`isJammed` は「隣に `Unused` タイルがあるか」だけで判定しており、
-**レーザーで完全に包囲されていても詰みと認識しない。**
-
-**影響**: プレイヤーは詰んでいるのに操作可能なまま。レーザーに突っ込むか `R` を押すしかない。
-
-**修正**: キーを `` `${lx},${ly}` `` に直し、`void lx; void ly;` を消すだけ。
-
-> ⚠️ **修正すると既存ステージの挙動が変わりうる。**
-> 直したら `bun run verify` を実行し、最小ループ数が変わっていないか確認すること。
-
-### F-1 — フィールドのセンタリングが `aabb.min` を無視している
-**場所**: [field.ts](../src/game/stage/field.ts) の `addTile()`
-
-```ts
-const w = (this.aabb.max.x - this.aabb.min.x + 1) * this.gap;
-this.offset.x = (1280 - w + this.gap) * 0.5;
-```
-
-`offset` の計算に `aabb.min` が入っていないため、フィールドの中心は
-`640 + aabb.min.x * gap` になる。**左端の列や上端の行が空だと、その分だけ右下にずれる。**
-
-**影響**: 現状の 7 ステージはすべて `min = 0` なので表面化していない。
-新規ステージで左詰め・上詰めを崩した瞬間に崩れる。
-
-**修正**: `this.offset.x = (1280 - w + this.gap) * 0.5 - this.aabb.min.x * this.gap;`（y も同様）
-
-### V-1 — タイルが 1 枚だけのステージで 0 除算
-**場所**: [stageview.ts](../src/game/stage/stageview.ts) の `update()`
-
-`m = manhattan.max - manhattan.min` が 0 になり `20 / m` が `Infinity` → `pivot.y` が `NaN`。
-**影響**: そんなステージを作らなければ起きない。ガードを入れておくのが安全。
-
----
 
 ## 🟡 機能追加で必ず踏む地雷
 
@@ -87,17 +41,6 @@ this.offset.x = (1280 - w + this.gap) * 0.5;
 **2 回目に入ると初期化されない**。ステージセレクトやポーズ画面など、
 再入場するシーンを足すときは自前で `enter()` を用意する必要がある。
 
-### S-1 — `Stage.reset()` の `container.destroy()` が子を破棄していない
-**場所**: [stage.ts](../src/game/stage/stage.ts) の `reset()`
-
-`destroy()` を引数なしで呼んでいるため、子の `Graphics` / `GraphicsContext` は破棄されない。
-ループのたびにタイル数ぶんの `Graphics` を作り直しているので、
-**長時間プレイで GPU リソースが積み上がる可能性がある**（要計測）。
-
-**確認方法**: `bun run dev` で 1 ステージを 50 回リセットし、
-`app.renderer.textureGC` とブラウザのメモリを観察する。
-問題があれば `destroy({ children: true, texture: true })` にする。
-
 ---
 
 ## ⚪ 掃除対象（動作に影響しない）
@@ -108,15 +51,13 @@ this.offset.x = (1280 - w + this.gap) * 0.5;
 | Z-5 | `mouse` は更新されているが誰も読んでいない | [main.ts](../src/main.ts) |
 | Z-6 | `hasAdjacentTile()` が未使用。一方通行タイル等で使う想定なので残している | [field.ts](../src/game/stage/field.ts) |
 | Z-12 | Tauri 側の `greet` コマンドがテンプレートのまま未使用 | [src-tauri/src/lib.rs](../src-tauri/src/lib.rs) |
-| Z-13 | 補間に `Ticker.deltaTime` を掛けていないため、動きがフレームレート依存 | 全体（[05-visual-style.md](05-visual-style.md#51-補間は一次遅れのみ)） |
-| Z-14 | `noUnusedLocals` / `noUnusedParameters` が `false`。L-1 を隠していた原因 | [tsconfig.json](../tsconfig.json) |
+| Z-14 | `noUnusedParameters` は `false` のまま。`update(t: Ticker)` など未使用引数が多くノイズになるため（`noUnusedLocals` は有効化済み） | [tsconfig.json](../tsconfig.json) |
 
 ---
 
 ## 触るときの注意
 
-- **L-1 と F-1 を直すとステージの解き味が変わる可能性がある。**
-  直した直後に `bun run verify` を実行し、最小ループ数の変化を確認すること。
+- **ルールに触ったら必ず `bun run verify`。** 最小ループ数が変わっていたら、それは仕様変更。
 - **`docs/` を手で編集しない。** `bun run build` の出力であり、GitHub Pages の配信元。
 - `main` ブランチは公開済みビルドと対応しているので、修正は `plus` で行う。
 
@@ -143,3 +84,8 @@ this.offset.x = (1280 - w + this.gap) * 0.5;
 | Z-7 | `Entity.start` が読まれない | 削除 | 2 |
 | Z-10 | `Player` と `Ghost` の重複 | `Entity` に `move()` / `update()` / `bump()` / `target` / `size` を集約 | 2 |
 | Z-15 | ルールの回帰テストが無い | `bun run verify` が**ゲーム本体と同じ `StageLogic`** で全ステージを解いて検証 | 2.5 |
+| L-1 | `isJammed` がレーザーを見ていない | `existsLaser()` を使うよう書き直し。全ステージの最小ループ数は不変 | 3 |
+| F-1 | センタリングが `aabb.min` を無視 | `offset` から `aabb.min * gap` を引く | 3 |
+| V-1 | タイル 1 枚のステージで 0 除算 | `manhattan` の幅を `Math.max(1, …)` で下限を設ける | 3 |
+| S-1 | `destroy()` が子を破棄していない | 古いツリーの破棄を `reset()` の最後に移し `{ children: true }` に。UI のドットテクスチャも使い回すよう変更 | 3 |
+| Z-13 | 補間がフレームレート依存 | `damp()`（[interpolate.ts](../src/common/interpolate.ts)）を全補間に適用 | 3 |

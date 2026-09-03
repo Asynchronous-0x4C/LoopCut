@@ -1,7 +1,27 @@
-import { Color, Container, Graphics, Particle, ParticleContainer, Text, Ticker } from "pixi.js";
+import { Container, Graphics, Particle, ParticleContainer, Text, Texture, Ticker } from "pixi.js";
 import { Stage } from "../stage/stage";
 import { app } from "../../main";
 import { bodyTextStyle } from "../../common/text";
+import { damp } from "../../common/interpolate";
+
+/**
+ * 残歩数ドットのテクスチャ。ループのたびに generateTexture すると
+ * RenderTexture が積み上がるので、一度だけ作って使い回す。
+ */
+let dotTexture: Texture|null = null;
+
+function getDotTexture(): Texture {
+  if(dotTexture === null) {
+    const g = new Graphics();
+    g.roundRect(-10, -10, 20, 20, 3);
+    g.fill({
+      color: "#ffffff",
+    });
+    dotTexture = app.renderer.generateTexture(g);
+    g.destroy();
+  }
+  return dotTexture;
+}
 
 export class UI extends Container {
   stage: Stage;
@@ -19,12 +39,7 @@ export class UI extends Container {
     this.steps.interactive = true;
     this.stage = stage;
     const offset = (-25 * stage.steps + 5 + 1280) * 0.5;
-    const g = new Graphics();
-    g.roundRect(-10, -10, 20, 20, 3);
-    g.fill({
-      color: "#ffffff",
-    })
-    const t = app.renderer.generateTexture(g);
+    const t = getDotTexture();
     for(let i = 0; i < stage.steps * 2; i++) {
       const s = Math.floor(i / stage.steps) === 0;
       const n = i % stage.steps;
@@ -51,14 +66,12 @@ export class UI extends Container {
   }
 
   update(t: Ticker) {
+    const k = damp(0.5, t.deltaTime);
     this.steps.particleChildren.forEach((p, i) => {
       const s = Math.floor(i / this.stage.steps) === 0;
       i = i % this.stage.steps;
-      if(i < this.stage.logic.remainSteps) {
-        (p as Particle).alpha += ((s ? 0.2 : 1) * 0.8 - (p as Particle).alpha) * 0.5;
-      } else {
-        (p as Particle).alpha += ((s ? 0.2 : 1) * 0.2 - (p as Particle).alpha) * 0.5;
-      }
+      const target = (s ? 0.2 : 1) * (i < this.stage.logic.remainSteps ? 0.8 : 0.2);
+      (p as Particle).alpha += (target - (p as Particle).alpha) * k;
     });
   }
 }

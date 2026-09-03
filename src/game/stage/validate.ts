@@ -63,11 +63,12 @@ export function validateStage(data: StageData): string[] {
   }
 
   if(tileCount > 0) {
-    // Field.offset の計算が aabb.min = 0 を前提にしているため（06-known-issues.md F-1）
-    if(minX !== 0) problems.push(`x=0 の列にタイルがありません (最小 x = ${minX})。左詰めで書いてください`);
-    if(minY !== 0) problems.push(`y=0 の行にタイルがありません (最小 y = ${minY})。上詰めで書いてください`);
-    if(maxX + 1 > MAX_COLUMNS) problems.push(`幅が ${maxX + 1} 列あります (上限 ${MAX_COLUMNS} 列)`);
-    if(maxY + 1 > MAX_ROWS) problems.push(`高さが ${maxY + 1} 行あります (上限 ${MAX_ROWS} 行)`);
+    // フィールドは中央に寄せられるので、左や上に空きがあっても構わない。
+    // 効くのは実際に使っている幅と高さだけ。
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+    if(width > MAX_COLUMNS) problems.push(`幅が ${width} 列あります (上限 ${MAX_COLUMNS} 列)`);
+    if(height > MAX_ROWS) problems.push(`高さが ${height} 行あります (上限 ${MAX_ROWS} 行)`);
   }
 
   // --- objects の走査 ---

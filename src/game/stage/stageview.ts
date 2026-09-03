@@ -40,7 +40,8 @@ export class StageView extends Container {
 
   update(t: Ticker) {
     const time = Math.max(0, Math.min(this.stage.logic.time, 50));
-    const m = this.stage.field.manhattan.max - this.stage.field.manhattan.min;
+    // タイルが 1 枚だけだと max === min になるので 0 除算を避ける
+    const m = Math.max(1, this.stage.field.manhattan.max - this.stage.field.manhattan.min);
     let s = 1;
     switch(this.stage.logic.state) {
       case LogicState.Start: s = 1; break;

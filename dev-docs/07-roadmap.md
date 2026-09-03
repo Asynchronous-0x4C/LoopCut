@@ -143,17 +143,17 @@ flowchart LR
 - [x] `bun run verify` がデータ検証 + 解の存在確認を行う
 - [x] 既存 7 ステージの**最小ループ数を `EXPECTED_LOOPS` に固定**（回帰検出用）
 
-**結果**（全 7 ステージ、約 1 秒）:
+**結果**（全 7 ステージ、約 1 秒。手順はフェーズ 3 の L-1 修正後の値）:
 
 | # | 最小ループ数 | 手順 |
 |---|---:|---|
 | 1 | 1 | `DDDD` |
 | 2 | 2 | `AAAADDDD` |
 | 3 | 2 | `DDDWADS` |
-| 4 | 2 | `SDWDSAA` |
+| 4 | 2 | `DSDWAA` |
 | 5 | 2 | `DSSDWDSDDDDDDDDDD` |
 | 6 | 2 | `DSSDDWWADSSDSS` |
-| 7 | 4 | `DWWDDDDSSADSSSDDWDWWDDDDSSADDD` |
+| 7 | 4 | `DWWDDDDDDSSSDDWDWWDDDDSSADDD` |
 
 > ステージ 2 の `AAAADDDD` は [02-game-rules.md](02-game-rules.md) で手で導いた解法と一致した。
 > リファクタでルールが壊れていないことの裏付けになっている。
@@ -162,27 +162,38 @@ flowchart LR
 
 ---
 
-## フェーズ 3 — バグ修正と堅牢化（1〜2 日 / リスク中）
+## フェーズ 3 — バグ修正と堅牢化 ✅ 完了
 
-**目的**: 公開できる品質にする。**ステージの解き味が変わるので、フェーズ 2.5 のソルバで必ず検証する。**
+**目的**: 公開できる品質にする。挙動が変わる修正なので、すべて `bun run verify` で検証した。
 
-- [ ] `isJammed` のレーザー判定を修正（[L-1](06-known-issues.md)）
-- [ ] `tsconfig.json` の `noUnusedLocals` を `true` にする（[Z-14](06-known-issues.md)。L-1 と同じコミットで）
-  - `noUnusedParameters` は `false` のままにする。`update(t: Ticker)` など
-    Pixi 側のシグネチャに合わせた未使用引数が多数あり、ノイズのほうが大きいため
-- [ ] フィールドのセンタリングに `aabb.min` を反映（[F-1](06-known-issues.md)）
-- [ ] `StageView` の 0 除算にガードを入れる（[V-1](06-known-issues.md)）
-- [ ] `Stage.reset()` の `destroy()` を計測し、必要なら `{ children: true }` にする（[S-1](06-known-issues.md)）
-- [ ] 補間に `Ticker.deltaTime` を反映させる（[Z-13](06-known-issues.md)）。
-      係数は `1 - Math.pow(1 - k, t.deltaTime)` の形にすると見た目を保てる
+- [x] `isJammed()` を `existsLaser()` を使う形に書き直し（L-1 解消）
+  - **全ステージの最小ループ数は変化なし。** ステージ 4 と 7 の最短手順だけが短くなった
+- [x] `noUnusedLocals: true`（Z-14 の半分。未使用 import 3 つを削除）
+- [x] センタリングに `aabb.min` を反映（F-1 解消）
+  - **副産物**: 左詰め・上詰めの制約が不要になったので、`validateStage()` からその検査を削除した
+- [x] `StageView` の 0 除算にガード（V-1 解消）
+- [x] `Stage.reset()` の破棄を作り直しの**最後**に移し `{ children: true }` に（S-1 解消）
+  - 先に破棄すると、ゴーストの生成元になる旧 `player` まで壊れるため順序が重要
+  - `StageView` が生き残るゴーストを新しいツリーへ付け替えた後なので、残りは捨てて安全
+- [x] UI の残歩数ドットのテクスチャを使い回すよう変更（ループのたびに `generateTexture` していた）
+- [x] 補間を `damp()`（[interpolate.ts](../src/common/interpolate.ts)）経由にしてフレームレート非依存に（Z-13 解消）
+  - 60fps では係数がそのまま使われるので**見た目は変わらない**
 
-**完了条件**: `bun run verify` が全ステージ緑。手動でも全クリアできる。
+**検証**:
+
+- `bun run verify` 全ステージ緑（最小ループ数 1/2/2/2/2/2/4 は修正前後で不変）
+- 破棄順の不変条件（生き残るゴーストが壊れないこと）をヘッドレスで確認
+- センタリングが左右上下の空きに依らず `(640, 360)` になることをヘッドレスで確認
+
+> ⚠️ **描画まわりは実際にプレイしての確認が残っている。**
+> `bun run dev` で 1 周プレイし、タイルのせり上がり・ゴーストの明滅・
+> ループを何度も回したときの表示崩れが無いかを見ること。
 
 ---
 
 ## フェーズ 4 — 機能追加（`plus` の本体）
 
-フェーズ 2 / 2.5 / 3 が終わってから着手する。優先順は好みで入れ替えてよい。
+**ここから先が `plus` の本体。** 優先順は好みで入れ替えてよい。
 
 - [ ] **複数ゴースト対応**（[G-1](06-known-issues.md)）。`Ghost.rewind()` を作り `maxGhosts` を実質的に有効化する。
       パズルの表現力が一段上がる、最も価値の高い拡張

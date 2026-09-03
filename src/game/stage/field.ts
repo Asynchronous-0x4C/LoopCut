@@ -67,10 +67,11 @@ export class Field extends Container {
     this.aabb.max.y = Math.max(tile.y, this.aabb.max.y);
     this.manhattan.min = Math.min(tile.x + tile.y, this.manhattan.min);
     this.manhattan.max = Math.max(tile.x + tile.y, this.manhattan.max);
+    // aabb.min を引かないと、左や上に空きがあるぶんフィールドが右下にずれる
     const w = (this.aabb.max.x - this.aabb.min.x + 1) * this.gap;
     const h = (this.aabb.max.y - this.aabb.min.y + 1) * this.gap;
-    this.offset.x = (1280 - w + this.gap) * 0.5;
-    this.offset.y = (720 - h + this.gap) * 0.5;
+    this.offset.x = (1280 - w + this.gap) * 0.5 - this.aabb.min.x * this.gap;
+    this.offset.y = (720 - h + this.gap) * 0.5 - this.aabb.min.y * this.gap;
     this.addChild(tile.g);
 
     // スイッチとレーザーの結線は Field が持つ。
@@ -108,20 +109,15 @@ export class Field extends Container {
     return this.tiles.has(`${x + d.x},${y + d.y}`);
   }
 
-  /** 4 方向すべてが塞がっているか（＝そのループはもう詰み） */
+  /**
+   * 4 方向すべてが塞がっているか（＝そのループはもう詰み）。
+   * 「進入できるタイルがあり、かつその辺にアクティブなレーザーが無い」方向が
+   * 1 つでもあれば詰みではない。
+   */
   isJammed(x: number, y: number): boolean {
     for(const d of DIRECTIONS) {
       const t = this.getAdjacentTile(x, y, d);
-      if(t !== null && t.canEnter()){
-        const o = offsetOf(d);
-        const lx = x + o.x * 0.5;
-        const ly = y + o.y * 0.5;
-        // TODO(L-1): 本来は `${lx},${ly}` を引くべきところを x,y で引いているため
-        // レーザーがまったく効いていない。フェーズ 3 で修正する。
-        void lx; void ly;
-        const l = this.lasers.get(`${x},${y}`);
-        if(l == null || (l != null && !l.active.value))return false;
-      }
+      if(t !== null && t.canEnter() && !this.existsLaser(x, y, d)) return false;
     }
     return true;
   }

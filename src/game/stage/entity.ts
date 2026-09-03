@@ -1,6 +1,7 @@
 import { Container, Ticker } from "pixi.js";
 import { Direction, offsetOf } from "./direction";
 import { GridPosition } from "./stagedata";
+import { damp } from "../../common/interpolate";
 
 /**
  * グリッド上を 1 マスずつ動くもの（プレイヤーとゴースト）。
@@ -33,8 +34,9 @@ export abstract class Entity extends Container {
   abstract get solid(): boolean;
 
   update(t: Ticker): void {
-    this.x += (this.target.x - this.x) * 0.5;
-    this.y += (this.target.y - this.y) * 0.5;
+    const k = damp(0.5, t.deltaTime);
+    this.x += (this.target.x - this.x) * k;
+    this.y += (this.target.y - this.y) * k;
   }
 
   move(dir: Direction) {

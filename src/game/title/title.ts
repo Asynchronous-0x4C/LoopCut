@@ -1,8 +1,9 @@
-import { Assets, Container, Graphics, Sprite, Text, Ticker } from "pixi.js";
+import { Graphics, Text, Ticker } from "pixi.js";
 import { Scene } from "../scene";
 import { Game } from "../game";
 import { key } from "../../main";
-import { bodyTextStyle } from "../../common/text";// @ts-ignore
+import { bodyTextStyle } from "../../common/text";
+import { damp } from "../../common/interpolate";// @ts-ignore
 import loopcut from "../../assets/loopcut.svg?raw";
 import { Stage } from "../stage/stage";
 
@@ -49,7 +50,7 @@ export class Title extends Scene {
     }
     if(this.keypressed) {
       this.time -= t.deltaTime;
-      this.text.alpha += -this.text.alpha * 0.5;
+      this.text.alpha += -this.text.alpha * damp(0.5, t.deltaTime);
       const x = Math.min(5, Math.max(0, this.time - 10));
       this.logo.alpha = Math.ceil(Math.sin(x * Math.PI * 0.5)) * Math.ceil(x / 3) * 0.8;
     }

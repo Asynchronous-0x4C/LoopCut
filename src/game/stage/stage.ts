@@ -91,7 +91,9 @@ export class Stage extends Scene implements StageContext {
     if(data === null) return;
     this.steps = data.steps ?? DEFAULT_STEPS;
 
-    this.container.destroy();
+    // 古いシーングラフは「最後に」破棄する。
+    // 先に壊すと、ゴーストの生成元になる旧 player まで壊れてしまう。
+    const previous = this.container;
     this.container = new Container();
     if(this.initialized)this.container.alpha = 0;
 
@@ -142,6 +144,10 @@ export class Stage extends Scene implements StageContext {
     this.ui = new UI(this);
     this.container.addChild(this.view);
     this.container.addChild(this.ui);
+
+    // StageView のコンストラクタが、生き残るゴーストを新しいツリーへ付け替え済み。
+    // 残っているのは捨てるものだけなので、子ごと破棄して GPU リソースを解放する。
+    previous.destroy({ children: true });
   }
 
   private createBackground(): Graphics {
