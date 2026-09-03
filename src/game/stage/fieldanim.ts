@@ -1,5 +1,5 @@
 import { Container } from "pixi.js";
-import { app } from "../../main";
+import { SCREEN_HEIGHT } from "../../common/screen";
 import { Field } from "./field";
 
 /** 入退場アニメの対象。グリッド座標と、動かす表示オブジェクトを持つもの */
@@ -32,7 +32,9 @@ export function applyWave(
   const apply = (v: WaveTarget) => {
     const _m = v.x + v.y - field.manhattan.min;
     const x = Math.max(0, 10 + (20 / m * _m) - t) / 10;
-    v.g.pivot.y = app.screen.height * x * x * x * x * dir;
+    // 飛距離は論理高さで固定する。app.screen.height（ウィンドウ依存の実ピクセル）を
+    // 使うと、ウィンドウが小さいときにタイルが画面外まで飛びきらず見えてしまう
+    v.g.pivot.y = SCREEN_HEIGHT * x * x * x * x * dir;
   };
 
   field.tiles.forEach(apply);
@@ -48,5 +50,7 @@ export function applyWave(
  */
 export function entityAlpha(time: number): number {
   const x = Math.max(0, Math.min(time, 50) - 45);
-  return Math.ceil(Math.sin(x * Math.PI * 0.5)) * Math.ceil(x / 3);
+  // この式は -1 や 2 も返す。明滅のパターンは保ったまま 0..1 に収める
+  const v = Math.ceil(Math.sin(x * Math.PI * 0.5)) * Math.ceil(x / 3);
+  return Math.max(0, Math.min(1, v));
 }

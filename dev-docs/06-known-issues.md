@@ -83,4 +83,7 @@
 | S-1 | `destroy()` が子を破棄していない | 古いツリーの破棄を `reset()` の最後に移し `{ children: true }` に。UI のドットテクスチャも使い回すよう変更 | 3 |
 | Z-13 | 補間がフレームレート依存 | `damp()`（[interpolate.ts](../src/common/interpolate.ts)）を全補間に適用 | 3 |
 | C-1 | `Scene` に入退場フックが無い | `enter()` / `exit()` を追加し `Game.setScene()` から呼ぶ。`Fin` は `enter()` で作り直す | 4 |
+| W-1 | 入退場アニメの飛距離に `app.screen.height`（ウィンドウ依存の実ピクセル）を使っていたため、小さいウィンドウでタイルが飛びきらず演出開始時に見えていた | 論理高さ `SCREEN_HEIGHT` で固定 | 4 |
+| W-2 | 組み立て直後の 1 フレームは `update()` が回らず、完成形が一瞬見えていた（選択画面で顕著） | 組み立て直後に初期状態を 1 回適用する | 4 |
+| W-3 | `Stage` が 1 フレーム目を `container.alpha = 0` で隠していたため、選択画面から入るとき背景色が一瞬ちらついていた | W-2 の対応で不要になったので廃止 | 4 |
 | — | リロードで進捗が消える | [progress.ts](../src/common/progress.ts) で localStorage に保存 | 4 |

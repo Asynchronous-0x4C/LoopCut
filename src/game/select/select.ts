@@ -1,4 +1,4 @@
-import { Container, FillGradient, Graphics, Ticker } from "pixi.js";
+import { Container, Ticker } from "pixi.js";
 import { Scene } from "../scene";
 import type { Game } from "../game";
 import { app, key } from "../../main";
@@ -19,6 +19,7 @@ import { conditionMet, resolveSelectMap } from "./selectmap";
 import { ExitArrow, selectTileRegistry, StageTile } from "./selecttiles";
 import { SelectView } from "./selectview";
 import { validateAllSelectMaps } from "./validate";
+import { createBackground } from "../../common/background";
 
 if(import.meta.env.DEV) validateAllSelectMaps(selectMaps);
 
@@ -139,7 +140,7 @@ export class Select extends Scene {
 
     const previous = this.container;
     this.container = new Container();
-    this.container.addChild(this.createBackground());
+    this.container.addChild(createBackground());
     app.stage.addChild(this.container);
 
     const resolved = resolveSelectMap(this.map);
@@ -183,21 +184,14 @@ export class Select extends Scene {
     this.collectEvents();
     this.updateLabel();
 
+    // 構築した直後のフレームは update() が回らないまま描画される。
+    // ここで初期状態（マップは画面外・自機は透明）を適用しておかないと、
+    // 完成形の選択画面が 1 フレームだけ見えてしまう。
+    this.view.update(0, this.time, 1);
+
     previous.destroy({ children: true });
   }
 
-  private createBackground(): Graphics {
-    const g = new Graphics();
-    const gradient = new FillGradient({
-      start: { x: 0, y: 0 },
-      end: { x: 1280, y: 720 }
-    });
-    gradient.addColorStop(0, "#f0f0f0");
-    gradient.addColorStop(1, "#e0e0e0");
-    g.rect(0, 0, 1280, 720);
-    g.fill(gradient);
-    return g;
-  }
 
   /** クリア済みのステージの `&` タイルを塗る */
   private markClearedTiles() {

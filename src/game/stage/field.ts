@@ -2,6 +2,7 @@ import { Container, Ticker } from "pixi.js";
 import { Laser } from "./objects";
 import { Direction, DIRECTIONS, offsetOf } from "./direction";
 import { SwitchTile, Tile } from "./tiles";
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../../common/screen";
 
 /**
  * タイルとレーザーの集合。グリッド座標 → ワールド座標の変換も担う。
@@ -70,8 +71,8 @@ export class Field extends Container {
     // aabb.min を引かないと、左や上に空きがあるぶんフィールドが右下にずれる
     const w = (this.aabb.max.x - this.aabb.min.x + 1) * this.gap;
     const h = (this.aabb.max.y - this.aabb.min.y + 1) * this.gap;
-    this.offset.x = (1280 - w + this.gap) * 0.5 - this.aabb.min.x * this.gap;
-    this.offset.y = (720 - h + this.gap) * 0.5 - this.aabb.min.y * this.gap;
+    this.offset.x = (SCREEN_WIDTH - w + this.gap) * 0.5 - this.aabb.min.x * this.gap;
+    this.offset.y = (SCREEN_HEIGHT - h + this.gap) * 0.5 - this.aabb.min.y * this.gap;
     this.addChild(tile.g);
 
     // スイッチとレーザーの結線は Field が持つ。

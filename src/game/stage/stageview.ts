@@ -36,9 +36,17 @@ export class StageView extends Container {
         l.g.y = w.y;
       });
     }
+
+    // 構築した直後のフレームは update() が回らないまま描画される。
+    // ここで初期状態を適用しておかないと、完成形が 1 フレームだけ見えてしまう。
+    this.apply();
   }
 
   update(t: Ticker) {
+    this.apply();
+  }
+
+  private apply() {
     const dir = this.stage.logic.state === LogicState.End ? -1 : 1;
     applyWave(this.stage.field, this.stage.logic.time, dir);
 

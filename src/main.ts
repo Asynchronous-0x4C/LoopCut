@@ -1,5 +1,6 @@
 import { Application } from "pixi.js";
 import { Game } from "./game/game";
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from "./common/screen";
 
 export let app: Application;
 export const mouse = {
@@ -15,19 +16,19 @@ export const key = {
 export const startTime = Date.now();
 
 const resize = () => {
-  let ratio = Math.min(window.innerWidth/1280, window.innerHeight/720);
+  let ratio = Math.min(window.innerWidth/SCREEN_WIDTH, window.innerHeight/SCREEN_HEIGHT);
   
   app.stage.scale.x = app.stage.scale.y = ratio;
   
-  app.renderer.resize(Math.ceil(1280 * ratio), Math.ceil(720 * ratio));
+  app.renderer.resize(Math.ceil(SCREEN_WIDTH * ratio), Math.ceil(SCREEN_HEIGHT * ratio));
 }
 
 (async () => {
   app = new Application();
 
   await app.init({
-    width: 1280,
-    height: 720,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
     resolution: window.devicePixelRatio,
     background: "#e6e6e6"
   });

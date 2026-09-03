@@ -67,7 +67,7 @@ g.stroke({ width: 3, color: "#333333", alpha: 0.8 });
 
 | 対象 | 値 |
 |---|---|
-| 論理解像度 | 1280 x 720（中央は 640, 360） |
+| 論理解像度 | 1280 x 720（中央は 640, 360）。定数は [screen.ts](../src/common/screen.ts) |
 | グリッド間隔 `gap` | 60px（[field.ts](../src/game/stage/field.ts) の `Field.gap`） |
 | 通常タイル | 半径 10 の円、stroke 3 |
 | スタート / ゴール | 20x20 角丸 4 の枠 + 内側に赤い印（三角 / 8x8 の四角） |
@@ -107,27 +107,41 @@ v += (target - v) * damp(k, t.deltaTime);
 
 ### 5.2 入退場は「マンハッタン距離の波」
 
-[stageview.ts](../src/game/stage/stageview.ts) の `update()`。
+[fieldanim.ts](../src/game/stage/fieldanim.ts) の `applyWave()`。ステージと選択画面で共有している。
 
 ```ts
 const _m = tile.x + tile.y - field.manhattan.min;      // 左上からの距離
 const x = Math.max(0, 10 + (20 / m * _m) - time) / 10; // タイルごとの遅延
-g.pivot.y = app.screen.height * x * x * x * x * s;     // 4 乗で加速
+g.pivot.y = SCREEN_HEIGHT * x * x * x * x * dir;       // 4 乗で加速
 ```
 
 - 左上のタイルから順に、画面外から降ってくる／画面外へ落ちていく。
-- `s = 1` で下から、`s = -1`（`End` 状態）で上へ抜ける。
-- **新しいオブジェクトを足したら、この `pivot.y` を動かす処理にも登録すること。**
+- `dir = 1` で下から、`dir = -1`（`End` 状態）で上へ抜ける。
+- **飛距離は論理高さ 720（`SCREEN_HEIGHT`）で固定する。**
+  `app.screen.height` はウィンドウに合わせて縮んだ実ピクセル値なので、
+  これを使うと小さいウィンドウでタイルが画面外まで飛びきらず、
+  演出の開始時に見えてしまう。
+- **新しいオブジェクトを足したら `applyWave()` の `extra` に渡すこと。**
   忘れるとそのオブジェクトだけ画面に貼り付いたまま残る。
+
+### 構築直後の 1 フレーム
+
+シーンやステージを組み立てたフレームでは、まだ `update()` が回っていない。
+**組み立て終わったら、その場で初期状態を 1 回適用すること。**
+忘れると「完成形が 1 フレームだけ見える」ちらつきになる
+（`StageView` はコンストラクタで、`Select` は `build()` の最後で適用している）。
 
 ### 5.3 点滅フェードイン
 
-プレイヤー・ゴースト・UI は `time` が 45 を超えてから数フレーム点滅して現れる。
+プレイヤー・ゴースト・UI は `time` が 45 を超えてから数フレーム点滅して現れる
+（`entityAlpha()`, [fieldanim.ts](../src/game/stage/fieldanim.ts)）。
 
 ```ts
-const x = Math.max(0, time - 45);
-alpha = Math.ceil(Math.sin(x * Math.PI * 0.5)) * Math.ceil(x / 3);
+const x = Math.max(0, Math.min(time, 50) - 45);
+alpha = clamp01(Math.ceil(Math.sin(x * Math.PI * 0.5)) * Math.ceil(x / 3));
 ```
+
+元の式は -1 や 2 も返すので 0〜1 に丸めている（明滅のパターンは変わらない）。
 
 タイトルロゴの退場も同じ式（[title.ts](../src/game/title/title.ts)）。
 **「実体が明滅する」という世界観の表現なので、新しい実体系の要素にも適用すること。**

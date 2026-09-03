@@ -67,6 +67,8 @@ flowchart LR
 | [src/common/text.ts](../src/common/text.ts) | 21 | 本文テキストの共通スタイル `bodyTextStyle` | |
 | [src/common/interpolate.ts](../src/common/interpolate.ts) | 14 | `damp()`。フレームレート非依存の一次遅れ補間 | 補間は必ずこれを通す |
 | [src/common/progress.ts](../src/common/progress.ts) | 87 | クリア記録とイベント再生記録の localStorage 保存 | 壊れた値でも落ちない |
+| [src/common/screen.ts](../src/common/screen.ts) | 10 | 論理解像度 `SCREEN_WIDTH` / `SCREEN_HEIGHT` | `app.screen.*` を位置計算に使わない |
+| [src/common/background.ts](../src/common/background.ts) | 20 | 共通の背景グラデーション | ステージと選択画面で共有 |
 | [src/game/game.ts](../src/game/game.ts) | 73 | シーンの保持・切り替え・**遷移の仲介** | シーンは起動時に全部インスタンス化される |
 | [src/game/scene.ts](../src/game/scene.ts) | 19 | `Scene` 抽象クラス（`container` / `update` / `enter` / `exit`） | 再入場時の初期化は `enter()` に書く |
 | [src/game/title/title.ts](../src/game/title/title.ts) | 63 | タイトル画面、ロゴ SVG 表示、キー入力でステージ 0 へ | 遷移先がハードコード |
@@ -193,6 +195,10 @@ set value(value: T) {
 
 `app` は `main.ts` の即時関数内で代入されるため、**モジュールのトップレベルで `app` を参照してはいけない**
 （`undefined` になる）。必ずコンストラクタ以降で触る。
+
+また **`app.screen.width` / `app.screen.height` はウィンドウ依存の実ピクセル値**であり、
+ゲーム内の位置やアニメーションの距離に使ってはいけない。
+論理解像度は [`SCREEN_WIDTH` / `SCREEN_HEIGHT`](../src/common/screen.ts) を使う。
 
 ## 7. ビルドと配信
 

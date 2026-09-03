@@ -1,4 +1,4 @@
-import { Container, FillGradient, Graphics, Ticker } from "pixi.js";
+import { Container, Ticker } from "pixi.js";
 import { Scene } from "../scene";
 import { StageContext, StageLogic } from "./stagelogic";
 import { StageInputSource, KeyboardInput } from "./stageinput";
@@ -14,6 +14,7 @@ import type { Game } from "../game";
 import { stages } from "./stages";
 import { DEFAULT_STEPS, GridPosition, MAX_GHOSTS, StageData } from "./stagedata";
 import { validateAllStages } from "./validate";
+import { createBackground } from "../../common/background";
 import { markCleared } from "../../common/progress";
 
 if(import.meta.env.DEV) validateAllStages(stages);
@@ -37,8 +38,6 @@ export class Stage extends Scene implements StageContext {
   field!: Field;
   ui!: UI;
 
-  initialized: boolean = true;
-
   steps: number = 0;
 
   constructor(game: Game){
@@ -51,7 +50,6 @@ export class Stage extends Scene implements StageContext {
     this.currentLabel = label;
     this.currentData = stages[stage] ?? null;
     if(this.currentData != null) {
-      this.initialized = true;
       this.reset(true);
     } else {
       console.error(`[LoopCut] ステージ ${stage} は存在しません`);
@@ -82,10 +80,6 @@ export class Stage extends Scene implements StageContext {
     this.ghosts.forEach(g => {
       g.update(t);
     });
-    if(this.initialized) {
-      this.container.alpha = 1;
-      this.initialized = false;
-    }
   }
 
   /**
@@ -101,9 +95,8 @@ export class Stage extends Scene implements StageContext {
     // 先に壊すと、ゴーストの生成元になる旧 player まで壊れてしまう。
     const previous = this.container;
     this.container = new Container();
-    if(this.initialized)this.container.alpha = 0;
 
-    this.container.addChild(this.createBackground());
+    this.container.addChild(createBackground());
 
     app.stage.addChild(this.container);
 
@@ -146,8 +139,9 @@ export class Stage extends Scene implements StageContext {
     this.logic = new StageLogic(this);
     this.input = new KeyboardInput();
 
-    this.view = new StageView(this);
+    // UI は StageView より先に作る。StageView が構築時に ui.alpha を触るため
     this.ui = new UI(this);
+    this.view = new StageView(this);
     this.container.addChild(this.view);
     this.container.addChild(this.ui);
 
@@ -156,22 +150,4 @@ export class Stage extends Scene implements StageContext {
     previous.destroy({ children: true });
   }
 
-  private createBackground(): Graphics {
-    const g = new Graphics();
-    const gradient = new FillGradient({
-      start: {
-        x: 0,
-        y: 0
-      },
-      end: {
-        x: 1280,
-        y: 720
-      }
-    });
-    gradient.addColorStop(0, "#f0f0f0");
-    gradient.addColorStop(1, "#e0e0e0");
-    g.rect(0, 0, 1280, 720);
-    g.fill(gradient);
-    return g;
-  }
 }

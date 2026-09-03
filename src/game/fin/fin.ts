@@ -6,37 +6,33 @@ import { bodyTextStyle } from "../../common/text";
 
 export class Fin extends Scene {
   game: Game;
-  time: number|null = null;
-  text: Text| null = null;
+  text: Text|null = null;
 
   constructor(game: Game) {
     super();
     this.game = game;
   }
 
-  /** 再入場に備えて作り直す。Scene の入退場フック */
+  /**
+   * 表示物はここで作る。コンストラクタではなく `enter()` に置くことで、
+   * 再入場しても正しく作り直され、入った最初のフレームから中身が見える。
+   */
   enter(): void {
-    this.time = null;
     if(this.text !== null) {
       this.container.removeChild(this.text);
       this.text.destroy();
-      this.text = null;
     }
+    const seconds = Math.round((Date.now() - startTime) / 1000);
+    this.text = new Text({
+      text: `Thank you for playing!\nプレイ時間: ${Math.floor(seconds / 60)}:${`${seconds % 60}`.padStart(2, "0")}`,
+      style: bodyTextStyle
+    });
+    this.text.anchor = {x: 0.5, y: 0.5};
+    this.text.x = 640;
+    this.text.y = 360;
+    this.container.addChild(this.text);
   }
 
   update(t: Ticker): void {
-    if(this.time === null) {
-      this.time = Date.now();
-      const t = Math.round((this.time - startTime) / 1000);
-      this.text = new Text({
-        text: `Thank you for playing!\nプレイ時間: ${Math.floor(t / 60)}:${`${t % 60}`.padStart(2,"0")}`,
-        style: bodyTextStyle
-      });
-      this.text.anchor = {x: 0.5, y: 0.5};
-      this.text.y = 360;
-      this.text.x = 640;
-      this.container.addChild(this.text);
-    }
   }
-  
 }
