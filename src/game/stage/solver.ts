@@ -6,7 +6,7 @@ import { Player } from "./player";
 import { createObject } from "./objects";
 import { createTile, SwitchTile } from "./tiles";
 import { LogicState, StageContext, StageLogic } from "./stagelogic";
-import { DEFAULT_STEPS, GridPosition, MAX_GHOSTS, StageData } from "./stagedata";
+import { DEFAULT_MAX_GHOSTS, DEFAULT_STEPS, GridPosition, StageData } from "./stagedata";
 
 /**
  * ヘッドレスなステージ検証（`bun run verify`）。
@@ -44,6 +44,7 @@ export class Sim implements StageContext {
   private build(init: boolean) {
     const data = this.data;
     this.steps = data.steps ?? DEFAULT_STEPS;
+    const maxGhosts = data.ghosts ?? DEFAULT_MAX_GHOSTS;
 
     const field = new Field();
     let start: GridPosition = { x: 0, y: 0 };
@@ -63,9 +64,10 @@ export class Sim implements StageContext {
     if(init) {
       this.ghosts = [];
     } else {
-      if(this.ghosts.length === MAX_GHOSTS) this.ghosts.shift();
+      while(this.ghosts.length >= maxGhosts) this.ghosts.shift();
       this.ghosts.push(new Ghost(this.player, this.logic.remainSteps));
     }
+    this.ghosts.forEach(g => g.rewind());
 
     this.field = field;
     this.player = new Player(start, field.gap);

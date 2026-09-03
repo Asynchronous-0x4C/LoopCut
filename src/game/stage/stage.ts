@@ -12,7 +12,7 @@ import { Ghost } from "./ghost";
 import { UI } from "../ui/ui";
 import type { Game } from "../game";
 import { stages } from "./stages";
-import { DEFAULT_STEPS, GridPosition, MAX_GHOSTS, StageData } from "./stagedata";
+import { DEFAULT_MAX_GHOSTS, DEFAULT_STEPS, GridPosition, StageData } from "./stagedata";
 import { validateAllStages } from "./validate";
 import { createBackground } from "../../common/background";
 import { markCleared } from "../../common/progress";
@@ -33,7 +33,7 @@ export class Stage extends Scene implements StageContext {
 
   player!: Player;
   ghosts: Array<Ghost> = new Array();
-  maxGhosts: number = MAX_GHOSTS;
+  maxGhosts: number = DEFAULT_MAX_GHOSTS;
 
   field!: Field;
   ui!: UI;
@@ -90,6 +90,7 @@ export class Stage extends Scene implements StageContext {
     const data = this.currentData;
     if(data === null) return;
     this.steps = data.steps ?? DEFAULT_STEPS;
+    this.maxGhosts = data.ghosts ?? DEFAULT_MAX_GHOSTS;
 
     // 古いシーングラフは「最後に」破棄する。
     // 先に壊すと、ゴーストの生成元になる旧 player まで壊れてしまう。
@@ -130,9 +131,11 @@ export class Stage extends Scene implements StageContext {
     if(init) {
       this.ghosts = [];
     } else {
-      if(this.ghosts.length === this.maxGhosts)this.ghosts.shift();
+      while(this.ghosts.length >= this.maxGhosts)this.ghosts.shift();
       this.ghosts.push(new Ghost(this.player, this.logic.remainSteps));
     }
+    // 生き残ったゴーストは前ループで消費済みなので、初期状態へ戻す
+    this.ghosts.forEach(g => g.rewind());
 
     this.player = new Player(start, this.field.gap);
 

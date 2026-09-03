@@ -1,6 +1,7 @@
 import {
   isTileChar,
   MAX_COLUMNS,
+  MAX_GHOSTS_LIMIT,
   MAX_ROWS,
   OBJECT_TYPES,
   PERMANENT_WALL_ID,
@@ -24,6 +25,10 @@ export function validateStage(data: StageData): string[] {
 
   if(data.steps !== undefined && (!Number.isInteger(data.steps) || data.steps < 1)) {
     problems.push(`steps は 1 以上の整数にしてください (現在: ${data.steps})`);
+  }
+  if(data.ghosts !== undefined
+     && (!Number.isInteger(data.ghosts) || data.ghosts < 0 || data.ghosts > MAX_GHOSTS_LIMIT)) {
+    problems.push(`ghosts は 0〜${MAX_GHOSTS_LIMIT} の整数にしてください (現在: ${data.ghosts})`);
   }
 
   // --- タイルの走査 ---

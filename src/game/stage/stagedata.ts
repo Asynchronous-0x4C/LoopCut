@@ -22,6 +22,11 @@ export interface StageObjectData {
 export interface StageData {
   /** 1 ループで動ける回数。省略時は DEFAULT_STEPS */
   steps?: number;
+  /**
+   * 同時に存在できるゴーストの数。省略時は DEFAULT_MAX_GHOSTS (1)。
+   * 2 以上にすると、直近 N ループぶんの分身が同時に出る。
+   */
+  ghosts?: number;
   /** 1 要素 = 1 行。文字の位置がそのまま x 座標になる */
   tiles: string[];
   objects?: StageObjectData[];
@@ -30,8 +35,11 @@ export interface StageData {
 /** steps を省略したときの既定値 */
 export const DEFAULT_STEPS = 4;
 
-/** 同時に存在できるゴーストの数。ゲーム本体もソルバもこの値を使う */
-export const MAX_GHOSTS = 1;
+/** ステージが `ghosts` を省略したときの、同時に存在できるゴーストの数 */
+export const DEFAULT_MAX_GHOSTS = 1;
+
+/** `ghosts` に指定できる上限。増やしすぎると盤面が読めなくなる */
+export const MAX_GHOSTS_LIMIT = 4;
 
 /** 実装済みの objects[].type */
 export const OBJECT_TYPES = ["laser"] as const;

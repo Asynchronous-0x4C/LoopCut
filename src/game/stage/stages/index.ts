@@ -7,6 +7,7 @@ import stage4 from "./stage4.json";
 import stage5 from "./stage5.json";
 import stage6 from "./stage6.json";
 import stage7 from "./stage7.json";
+import stage8 from "./stage8.json";
 
 /**
  * プレイ順のステージ一覧。**この配列の順序がそのままステージ順になる。**
@@ -23,5 +24,6 @@ export const stages: Array<StageData> = [
   stage4,
   stage5,
   stage6,
-  stage7
+  stage7,
+  stage8
 ];

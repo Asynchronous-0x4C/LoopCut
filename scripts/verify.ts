@@ -13,7 +13,7 @@
 import { stages } from "../src/game/stage/stages";
 import { validateStage } from "../src/game/stage/validate";
 import { formatMoves, playRoute, solve } from "../src/game/stage/solver";
-import { DEFAULT_STEPS } from "../src/game/stage/stagedata";
+import { DEFAULT_MAX_GHOSTS, DEFAULT_STEPS } from "../src/game/stage/stagedata";
 import { selectMaps } from "../src/game/select/maps";
 import { allStageLabels, validateSelectMap } from "../src/game/select/validate";
 import { analyzeSelectMap } from "../src/game/select/reachability";
@@ -30,7 +30,8 @@ const EXPECTED_LOOPS: Record<number, number> = {
   4: 2,
   5: 2,
   6: 2,
-  7: 4
+  7: 4,
+  8: 3
 };
 
 /**
@@ -44,7 +45,10 @@ const EXPECTED_LOOPS: Record<number, number> = {
 const KNOWN_ROUTES: Record<number, Array<string>> = {
   // ゴーストがスイッチを踏んでレーザーが開くのを待ってから進む手順。
   // 詰み判定をゴーストの移動より前に戻すと、これが壊れる。
-  4: ["SDWDSAA", "DSDWAA"]
+  4: ["SDWDSAA", "DSDWAA"],
+  // 2 体のゴーストがそれぞれスイッチを押さえ続ける手順。
+  // ゴーストの巻き戻し（Ghost.rewind）が壊れると、どちらも通らなくなる。
+  8: ["AADDSS", "DDAASS"]
 };
 
 /** 何ループまで探索するか */
@@ -68,6 +72,7 @@ stages.forEach((data, i) => {
   const width = Math.max(...data.tiles.map(r => r.trimEnd().length));
   const shape = `${width}x${data.tiles.length}`;
   const steps = data.steps ?? DEFAULT_STEPS;
+  const ghosts = data.ghosts ?? DEFAULT_MAX_GHOSTS;
 
   let summary = "";
   if(problems.length === 0) {
@@ -95,7 +100,7 @@ stages.forEach((data, i) => {
     });
   }
   report(problems.length === 0,
-    `${name.padEnd(8)} ${shape.padEnd(7)} steps=${String(steps).padEnd(3)} ${summary}`,
+    `${name.padEnd(8)} ${shape.padEnd(7)} steps=${String(steps).padEnd(3)} ghosts=${ghosts} ${summary}`,
     problems);
 });
 
