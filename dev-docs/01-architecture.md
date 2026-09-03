@@ -76,7 +76,7 @@ flowchart LR
 | [src/game/ui/ui.ts](../src/game/ui/ui.ts) | 63 | 残歩数ドット（ParticleContainer）、操作説明 | `Stage` を直接参照 |
 | **ルール（描画・入力に依存しない）** | | | |
 | [src/game/stage/direction.ts](../src/game/stage/direction.ts) | 43 | `Direction` と `offsetOf` / `opposite` / `directionFromKey` | 方向の計算はすべてここ経由 |
-| [src/game/stage/tiles.ts](../src/game/stage/tiles.ts) | 226 | `TileState` / `Tile` / `StartTile` / `EndTile` / `SwitchTile` / **`tileRegistry`** | **新しいタイルはここに 1 行** |
+| [src/game/stage/tiles.ts](../src/game/stage/tiles.ts) | 306 | `TileState` / `Tile` / `StartTile` / `EndTile` / `SwitchTile` / `DoubleTile` / **`tileRegistry`** | **新しいタイルはここに 1 行** |
 | [src/game/stage/objects.ts](../src/game/stage/objects.ts) | 99 | `Laser` と **`objectRegistry`** | **新しいギミックはここに 1 行** |
 | [src/game/stage/field.ts](../src/game/stage/field.ts) | 139 | `Field`。タイル/レーザーの集合、座標変換、詰み判定、ターン通知 | スイッチ→レーザーの結線もここ |
 | [src/game/stage/entity.ts](../src/game/stage/entity.ts) | 55 | `Entity`。グリッド移動・補間・レーザーへの突っ込み演出 | `Player`/`Ghost` の共通部 |
@@ -101,7 +101,7 @@ flowchart LR
 | [src/game/stage/stageinput.ts](../src/game/stage/stageinput.ts) | 43 | キー入力 → `StageLogic` の操作 | ここだけが `key` を読む |
 | [src/game/stage/stageview.ts](../src/game/stage/stageview.ts) | 51 | ステージの入退場演出 | `logic.time` を読むだけ |
 | [src/game/stage/fieldanim.ts](../src/game/stage/fieldanim.ts) | 50 | `applyWave()` / `entityAlpha()`。入退場演出の実体 | ステージと選択画面で共有 |
-| [src/game/stage/solver.ts](../src/game/stage/solver.ts) | 257 | ヘッドレスな `StageContext` 実装、ソルバ、`playRoute()` | **ゲーム本体からは import されない** |
+| [src/game/stage/solver.ts](../src/game/stage/solver.ts) | 255 | ヘッドレスな `StageContext` 実装、ソルバ、`playRoute()` | **ゲーム本体からは import されない** |
 | [scripts/verify.ts](../scripts/verify.ts) | 146 | `bun run verify` の本体 | ステージ + 選択マップ |
 
 ## 3. 起動から 1 フレームまで

@@ -55,18 +55,29 @@ initGraphics(g: Graphics, pushed: boolean = this.pushed?.value ?? false): void {
 
 ## レシピ A: 新しいタイルを追加する
 
-例として **「2 回まで通れるタイル」** を追加する。触るファイルは
-[tiles.ts](../src/game/stage/tiles.ts) の 1 つだけ。
+例として **「2 回まで通れるタイル」** を追加する。触るのは
+[tiles.ts](../src/game/stage/tiles.ts) と [stagedata.ts](../src/game/stage/stagedata.ts) だけ。
+
+> **この例（`DoubleTile` / 文字 `=`）は実装済み。**
+> [tiles.ts](../src/game/stage/tiles.ts) の `DoubleTile` と
+> [stage9.json](../src/game/stage/stages/stage9.json) が実物なので、
+> 手を動かす前に読むとはやい。自分のタイルを足すときは別の文字を選ぶこと。
 
 ### A-1. タイルクラスを書く
 
-`Tile` が持つ拡張点は 3 つ。
+`Tile` が持つ拡張点は 4 つ。
 
 | メンバ | 意味 |
 |---|---|
 | `canEnter(): boolean` | このタイルに進入できるか |
 | `onEnter(solid: boolean): void` | 進入されたときの処理。`solid` は実体を持つエンティティか |
 | `get isGoal(): boolean` | 進入したらクリアか |
+| `fingerprint(): string` | ソルバの状態比較に使う指紋 |
+
+> ⚠️ **状態を持つタイルは `fingerprint()` を必ず override すること。**
+> 既定の実装は `Used` かどうかしか見ない。残り回数のような状態を混ぜ忘れると、
+> ソルバが「残り 2」と「残り 1」を同じ状態とみなして探索を打ち切り、
+> **解けるステージを「解けない」と誤判定する。**
 
 ```ts
 // src/game/stage/tiles.ts の末尾付近
@@ -107,6 +118,10 @@ export class DoubleTile extends Tile {
     this.remain.value = this.remain.value - 1;
     if (this.remain.value <= 0) this.state.value = TileState.Used;
   }
+
+  fingerprint(): string {
+    return `${super.fingerprint()}${this.remain.value}`;
+  }
 }
 ```
 
@@ -146,6 +161,10 @@ export const TILE_CHARS = ["S", "G", "#", "@", "="] as const;   // ← 追加
 - [ ] `./node_modules/.bin/tsc --noEmit` が通る
 - [ ] `bun run verify` が通る（既存ステージの最小ループ数が変わっていない）
 - [ ] 新しい文字を使ったテストステージを 1 つ作り、`bun run verify` で解けることを確認
+- [ ] **その仕掛けが本当に必要か確かめる。** 新しい文字を `#` に置き換えたデータを
+      ソルバにかけ、解けなくなる（またはループ数が増える）ことを見る。
+      ステージ 9 はこれで「`#` だと解なし」を確認してある
+- [ ] 手順を `KNOWN_ROUTES` に固定する
 - [ ] `bun run dev` で見た目を確認（2 回目通過後に変化するか）
 
 ---

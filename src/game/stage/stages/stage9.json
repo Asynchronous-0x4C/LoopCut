@@ -1,0 +1,20 @@
+{
+  "steps": 5,
+  "tiles": [
+    " S ",
+    "a=b",
+    " G "
+  ],
+  "objects": [
+    {
+      "type": "laser",
+      "id": "a",
+      "position": { "x": 1, "y": 1.5 }
+    },
+    {
+      "type": "laser",
+      "id": "b",
+      "position": { "x": 0.5, "y": 1 }
+    }
+  ]
+}

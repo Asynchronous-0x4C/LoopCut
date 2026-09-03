@@ -60,6 +60,17 @@ export class Tile {
     return false;
   }
 
+  /**
+   * ソルバが「同じ状態か」を判定するための指紋。
+   *
+   * **状態を持つタイルを追加したら、必ず override してその状態を混ぜること。**
+   * 混ぜ忘れると、ソルバが異なる状態を同一とみなして探索を打ち切り、
+   * 解けるステージを「解けない」と誤判定する。
+   */
+  fingerprint(): string {
+    return this.state.value === TileState.Used ? "U" : "-";
+  }
+
   initGraphics(g: Graphics) {
     g.circle(this.z, this.z, 10);
     g.stroke({
@@ -177,6 +188,10 @@ export class SwitchTile extends Tile {
     this.pushed.value = true;
   }
 
+  fingerprint(): string {
+    return super.fingerprint() + (this.pushed.value ? "P" : "-");
+  }
+
   initGraphics(g: Graphics, pushed: boolean = this.pushed?.value ?? false): void {
     g.clear();
     g.circle(this.z, this.z, 10);
@@ -204,6 +219,69 @@ export class SwitchTile extends Tile {
   }
 }
 
+/**
+ * 2 回まで通れるタイル。一筆書きの制約を局所的にゆるめる。
+ * 追加手順は dev-docs/04-recipes.md レシピ A の実例そのもの。
+ */
+export class DoubleTile extends Tile {
+  remain: ObservableValue<number>;
+
+  constructor(state: TileState, x: number, y: number) {
+    super(state, x, y);
+    this.remain = new ObservableValue(2);
+    this.remain.addListener((p, c) => this.initGraphics(this.g, c));
+  }
+
+  canEnter(): boolean {
+    return this.remain.value > 0;
+  }
+
+  onEnter(solid: boolean): void {
+    // 実体を持たないゴーストは消費しない
+    if(!solid) return;
+    this.remain.value = this.remain.value - 1;
+    if(this.remain.value <= 0) this.state.value = TileState.Used;
+  }
+
+  fingerprint(): string {
+    return `${super.fingerprint()}${this.remain.value}`;
+  }
+
+  initGraphics(g: Graphics, remain: number = this.remain?.value ?? 2): void {
+    g.clear();
+    // --- 影 ---
+    g.circle(this.z, this.z, 10);
+    g.stroke({
+      width: 3,
+      color: "#333333",
+      alpha: 0.2
+    });
+    if(remain > 1) {
+      g.circle(this.z, this.z, 4.5);
+      g.stroke({
+        width: 2,
+        color: "#333333",
+        alpha: 0.2
+      });
+    }
+    // --- 本体 ---
+    g.circle(0, 0, 10);
+    g.stroke({
+      width: 3,
+      color: "#333333",
+      alpha: 0.8
+    });
+    if(remain > 1) {
+      g.circle(0, 0, 4.5);
+      g.stroke({
+        width: 2,
+        color: "#333333",
+        alpha: 0.8
+      });
+    }
+  }
+}
+
 export type TileFactory = (x: number, y: number) => Tile;
 
 /**
@@ -215,7 +293,8 @@ export const tileRegistry: Record<string, TileFactory> = {
   "S": (x, y) => new StartTile(TileState.Unused, x, y),
   "G": (x, y) => new EndTile(TileState.Unused, x, y),
   "#": (x, y) => new Tile(TileState.Unused, x, y),
-  "@": (x, y) => new Tile(TileState.Used, x, y)
+  "@": (x, y) => new Tile(TileState.Used, x, y),
+  "=": (x, y) => new DoubleTile(TileState.Unused, x, y)
 };
 
 /** タイルにならない文字なら null */

@@ -51,7 +51,7 @@ export const OBJECT_TYPES = ["laser"] as const;
 export const PERMANENT_WALL_ID = "-";
 
 /** タイルを生成する文字（小文字 a-z は SwitchTile なので別扱い） */
-export const TILE_CHARS = ["S", "G", "#", "@"] as const;
+export const TILE_CHARS = ["S", "G", "#", "@", "="] as const;
 
 /** フィールドの物理的な上限。1280x720 を gap=60 で割った値 */
 export const MAX_COLUMNS = 21;

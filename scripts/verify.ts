@@ -31,7 +31,8 @@ const EXPECTED_LOOPS: Record<number, number> = {
   5: 2,
   6: 2,
   7: 4,
-  8: 3
+  8: 3,
+  9: 2
 };
 
 /**
@@ -48,7 +49,10 @@ const KNOWN_ROUTES: Record<number, Array<string>> = {
   4: ["SDWDSAA", "DSDWAA"],
   // 2 体のゴーストがそれぞれスイッチを押さえ続ける手順。
   // ゴーストの巻き戻し（Ghost.rewind）が壊れると、どちらも通らなくなる。
-  8: ["AADDSS", "DDAASS"]
+  8: ["AADDSS", "DDAASS"],
+  // 中央の `=` を 1 ループで 2 回通る手順。
+  // Tile.fingerprint() が remain を含めないと、ソルバがこの解を取りこぼす。
+  9: ["SDAASS"]
 };
 
 /** 何ループまで探索するか */

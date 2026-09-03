@@ -4,7 +4,7 @@ import { Field } from "./field";
 import { Ghost } from "./ghost";
 import { Player } from "./player";
 import { createObject } from "./objects";
-import { createTile, SwitchTile } from "./tiles";
+import { createTile } from "./tiles";
 import { LogicState, StageContext, StageLogic } from "./stagelogic";
 import { DEFAULT_MAX_GHOSTS, DEFAULT_STEPS, GridPosition, StageData } from "./stagedata";
 
@@ -105,12 +105,11 @@ export class Sim implements StageContext {
 
   /** 探索の重複判定に使う、状態の完全な指紋 */
   fingerprint(): string {
-    const tiles = [...this.field.tiles.values()];
-    const used = tiles.filter(t => !t.canEnter()).map(t => t.key()).sort().join("|");
-    const pushed = tiles
-      .filter((t): t is SwitchTile => t instanceof SwitchTile)
-      .filter(t => t.pushed.value)
-      .map(t => t.id).sort().join("");
+    // タイルの状態は Tile.fingerprint() に任せる。
+    // ここで canEnter() だけを見ると、2 回通れるタイルの「残り 2」と「残り 1」を
+    // 同じ状態とみなしてしまい、探索が解を取りこぼす。
+    const tiles = [...this.field.tiles.values()]
+      .map(t => `${t.key()}=${t.fingerprint()}`).sort().join("|");
     const lasers = [...this.field.lasers.values()]
       .filter(l => l.active.value).map(l => l.key()).sort().join("|");
     const ghosts = this.ghosts
@@ -120,8 +119,7 @@ export class Sim implements StageContext {
       this.loopCount,
       `${this.player.grid.x},${this.player.grid.y}`,
       this.logic.remainSteps,
-      used,
-      pushed,
+      tiles,
       lasers,
       ghosts
     ].join("#");

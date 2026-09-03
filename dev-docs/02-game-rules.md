@@ -109,6 +109,7 @@
 | `G` | `EndTile` | ゴール。赤い四角 |
 | `#` | `Tile` | 通常タイル（`Unused`） |
 | `@` | `Tile` | 通常タイルだが**最初から `Used`**（進入不可の障害物） |
+| `=` | `DoubleTile` | 2 回まで通れる。実体を持つものが通るたびに残り回数が減る |
 | `a`〜`z` | `SwitchTile` | スイッチ。文字がそのまま ID になる |
 | 空白・その他 | — | タイル無し |
 
@@ -126,6 +127,10 @@
 | `canEnter(): boolean` | 進入できるか。既定は `state === Unused` |
 | `onEnter(solid: boolean): void` | 進入されたときの処理。既定は `solid` なら `Used` にする |
 | `get isGoal(): boolean` | 進入したらクリアか。`EndTile` だけ `true` |
+| `fingerprint(): string` | ソルバが「同じ状態か」を判定するための指紋 |
+
+> **状態を持つタイルを足したら `fingerprint()` を必ず override すること。**
+> 混ぜ忘れると、ソルバが異なる状態を同一とみなして解を取りこぼす。
 
 **状態は `Used → Unused` に戻らない**（コード上は対応しているが、そうする経路が無い）。
 
@@ -277,6 +282,7 @@ laser a: x=7.5, y=0  … タイル(7,0) と (8,0) の間 ＝ ゴールの直前
 | 6 | 2 | `DSSDDWWADSSDSS` |
 | 7 | 4 | `DWWDDDDSSADSSSDDWDWWDDDDSSADDD` |
 | 8 | 3 | `DDAASS`（ゴースト 2 体） |
+| 9 | 2 | `SDAASS`（`=` を 1 ループで 2 回通る） |
 
 **回帰検出の対象は「最小ループ数」**と、`KNOWN_ROUTES` に固定した既知の手順。
 上の表のうち固定してあるのはステージ 4 の 2 つだけで、
