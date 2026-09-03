@@ -1,6 +1,7 @@
 import { Color, Container, Graphics, Particle, ParticleContainer, Text, Ticker } from "pixi.js";
 import { Stage } from "../stage/stage";
 import { app } from "../../main";
+import { bodyTextStyle } from "../../common/text";
 
 export class UI extends Container {
   stage: Stage;
@@ -41,17 +42,7 @@ export class UI extends Container {
 
     this.controls = new Text({
       text: "移動: W/A/S/D\nリセット: R",
-      style: {
-        fontFamily: 'Noto Sans JP',
-        fontSize: 25,
-        fill: 0x646464,
-        dropShadow: {
-            color: '#646464',
-            blur: 0,
-            distance: 3,
-            alpha: 0.25
-        }
-      },
+      style: bodyTextStyle,
       x: 5,
       y: 30
     });

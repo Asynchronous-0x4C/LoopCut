@@ -1,7 +1,8 @@
 import { Assets, Container, Graphics, Sprite, Text, Ticker } from "pixi.js";
 import { Scene } from "../scene";
 import { Game } from "../game";
-import { key } from "../../main";// @ts-ignore
+import { key } from "../../main";
+import { bodyTextStyle } from "../../common/text";// @ts-ignore
 import loopcut from "../../assets/loopcut.svg?raw";
 import { Stage } from "../stage/stage";
 
@@ -18,17 +19,7 @@ export class Title extends Scene {
     this.game = game;
     this.text = new Text({
       text: "> キーを押してスタート <",
-      style: {
-        fontFamily: 'Noto Sans JP',
-        fontSize: 25,
-        fill: 0x646464,
-        dropShadow: {
-            color: '#646464',
-            blur: 0,
-            distance: 3,
-            alpha: 0.25
-        }
-      }
+      style: bodyTextStyle
     });
     this.text.anchor = {x: 0.5, y: 0.5};
     this.text.y = 680;

@@ -18,6 +18,7 @@ LoopCut は PixiJS v8 + TypeScript + Vite で作られたグリッドベース�
 |---|---|---|
 | `src/` | ゲーム本体のソース | **する** |
 | `src/game/stage/stages/*.json` | ステージ定義データ | **する** |
+| `scripts/` | 検証スクリプト（`bun run verify`） | **する** |
 | `dev-docs/` | 開発者・AI 向けドキュメント | **する** |
 | `docs/` | **Vite のビルド出力**（GitHub Pages の配信元） | **絶対にしない** |
 | `src-tauri/` | Tauri デスクトップ殻。ゲームロジックは一切含まない | 基本しない |
@@ -31,12 +32,14 @@ LoopCut は PixiJS v8 + TypeScript + Vite で作られたグリッドベース�
 ```bash
 bun install          # 依存導入（npm/pnpm でも可）
 bun run dev          # 開発サーバ http://localhost:1420
+bun run verify       # 全ステージのデータ検証（ステージを触ったら必ず実行）
 ./node_modules/.bin/tsc --noEmit   # 型チェックのみ（変更後は必ず通すこと）
 bun run build        # tsc + vite build → docs/ を更新（配信物を更新する時だけ）
 bun run tauri dev    # デスクトップ版
 ```
 
-自動テストは存在しない。**変更後は最低限 `tsc --noEmit` を通し、`bun run dev` で該当ステージの挙動を確認すること。**
+**変更後は `tsc --noEmit` と `bun run verify` を通し、`bun run dev` で該当ステージの挙動を確認すること。**
+`bun run dev` の起動時にもステージ検証が走り、問題があれば `console.warn` に出る。
 
 ## 作業別の参照先
 
@@ -61,6 +64,7 @@ bun run tauri dev    # デスクトップ版
 ## 変更時の必須確認
 
 1. `tsc --noEmit` が通る。
-2. `docs/` を編集していない。
-3. ステージを追加した場合、**ロード順の罠**（[03-stage-format.md](dev-docs/03-stage-format.md#41-ロード順の罠)）を踏んでいない。
-4. ルール・データ形式を変えた場合、`dev-docs/` の該当箇所も同じコミットで更新する。
+2. `bun run verify` が通る。
+3. `docs/` を編集していない。
+4. ステージを追加した場合、[stages/index.ts](src/game/stage/stages/index.ts) の配列にも追加した。
+5. ルール・データ形式を変えた場合、`dev-docs/` の該当箇所も同じコミットで更新する。

@@ -23,8 +23,8 @@
 }
 ```
 
-TypeScript の型はまだ存在しない（`any` で読んでいる）。
-型を付ける作業は [07-roadmap.md](07-roadmap.md) のフェーズ 1。
+TypeScript の型は [src/game/stage/stagedata.ts](../src/game/stage/stagedata.ts) にある（`StageData`）。
+定数（`DEFAULT_STEPS` / `MAX_COLUMNS` / `MAX_ROWS` / `PERMANENT_WALL_ID`）もそこに置いてある。
 
 ## 2. `tiles` の書き方
 
@@ -72,9 +72,10 @@ TypeScript の型はまだ存在しない（`any` で読んでいる）。
   両方 `.5` だと当たり判定のキーと一致せず機能しない。
 - `x` が `.5` → タイル `(floor(x), y)` と `(ceil(x), y)` の**間**を塞ぐ（横方向の通行止め）。
 - `y` が `.5` → タイル `(x, floor(y))` と `(x, ceil(y))` の**間**を塞ぐ（縦方向の通行止め）。
-- `id` に対応する `SwitchTile`（同じ文字）が `tiles` に無い場合、そのレーザーは**永久に消せない壁**になる。
-  意図的に使ってよい（現状は全ステージで対応スイッチを置いている）。
 - 複数のレーザーに同じ `id` を付ければ、1 つのスイッチでまとめて消せる。
+- **消せない壁にしたいときは `id` を `"-"` にする**（`PERMANENT_WALL_ID`）。
+  `SwitchTile` の id は a-z の 1 文字なので、`"-"` は決して一致しない。
+  a-z の id を書いて対応スイッチが無い場合は「書き忘れ」とみなして `bun run verify` が警告する。
 
 > 見た目の向き（`vertical`）は `Math.round(y) === y` で自動決定される。手で指定する項目は無い。
 
@@ -85,49 +86,63 @@ TypeScript の型はまだ存在しない（`any` で読んでいる）。
 
 ## 4. ステージの追加手順
 
-### 4.1 ロード順の罠
+### 4.1 ステージ順は `stages/index.ts` の配列順
 
-ステージは `import.meta.glob('./stages/*.json', { eager: true })` で読み込まれ、
-`Object.values()` の順＝**ファイル名の辞書順**がそのままステージ順になる
-（[stage.ts:13](../src/game/stage/stage.ts#L13)）。
+ステージ順は [src/game/stage/stages/index.ts](../src/game/stage/stages/index.ts) の
+`stages` 配列の並びで決まる。**ファイル名は順序に一切影響しない。**
 
+```ts
+import stage8 from "./stage8.json";   // ← 1 行足して
+
+export const stages: Array<StageData> = [
+  stage1, /* … */ stage7,
+  stage8                              // ← 配列にも 1 行足す
+];
 ```
-stage1.json, stage10.json, stage2.json, stage3.json, ...   ← 辞書順ではこうなる
-```
 
-**`stage10.json` を作った瞬間、ステージ 2 の位置に割り込む。**
-
-| 状況 | やること |
-|---|---|
-| 9 ステージ目まで | `stage8.json`, `stage9.json` を素直に追加してよい |
-| 10 ステージ目以降 | **先に [07-roadmap.md](07-roadmap.md) フェーズ 1 の「明示的なステージ index 化」を実施する。**<br>暫定対応するなら全ファイルを `stage01.json` 形式のゼロ埋めにリネームする |
+> かつては `import.meta.glob` で読んでいたため、ファイル名の辞書順に依存しており
+> `stage10.json` がステージ 2 の位置に割り込む罠があった（O-1）。フェーズ 1 で解消済み。
 
 ### 4.2 手順
 
 1. `src/game/stage/stages/stageN.json` を作る（N は連番）。
 2. §2 / §3 の制約を守って `tiles` と `objects` を書く。
-3. **手で解けるか確認する**（§5 のチェックリスト）。
-4. `bun run dev` で起動。前のステージまで手動で進めるのが面倒なら、
-   [title.ts:69](../src/game/title/title.ts#L69) の `s.load(0)` を一時的に `s.load(N-1)` に変えて確認し、**戻す**。
-5. `./node_modules/.bin/tsc --noEmit` を通す（JSON 追加だけなら通るはず）。
+3. `stages/index.ts` に **import 1 行**と**配列の 1 要素**を足す。
+4. **`bun run verify` を実行する。** データの不備はここで全部出る。
+5. **手で解けるか確認する**（§5 のチェックリスト）。
+6. `bun run dev` で起動。前のステージまで手動で進めるのが面倒なら、
+   [title.ts](../src/game/title/title.ts) の `s.load(0)` を一時的に `s.load(N-1)` に変えて確認し、**戻す**。
+7. `./node_modules/.bin/tsc --noEmit` を通す。
 
-### 4.3 ファイルサイズの落とし穴
+### 4.3 検証コマンド
 
-`stage.ts` は `currentData.tiles` のように **JSON の名前付きエクスポート**を読んでいる。
-Vite は既定（`json.stringify: 'auto'`）で **10KB を超える JSON を `JSON.parse` 化し、名前付きエクスポートを止める**。
-その瞬間 `currentData.tiles` が `undefined` になり、**ビルド版だけ**壊れる。
+```bash
+bun run verify
+```
 
-→ **1 ステージの JSON は 10KB 未満に収めること。** 大きくなるならデータ構造を見直す。
+全ステージについて次を検査し、1 つでも問題があれば終了コード非 0 で落ちる。
+
+- `S` がちょうど 1 個 / `G` が 1 個以上 / タイルが 2 個以上
+- タイルにならない文字が混ざっていないか
+- `x=0` の列と `y=0` の行にタイルがあるか（左詰め・上詰め）
+- 幅 ≤ 21 列・高さ ≤ 12 行
+- `steps` が 1 以上の整数か
+- `objects[].type` が実装済みか
+- `objects[].position` が「片方が整数・もう片方が半整数」か
+- `objects[].id` に対応するスイッチがあるか（`"-"` を除く）
+
+開発サーバ（`bun run dev`）でも同じ検証が起動時に走り、`console.warn` に出る。
 
 ## 5. ステージ設計チェックリスト
 
-作ったステージについて、以下を頭の中（またはメモ）で追うこと。
+**まず `bun run verify` を通すこと。** 下の前半 5 項目は自動で検査される。
+残りは機械では判定できないので、頭の中（またはメモ）で追うこと。
 
-- [ ] `S` が 1 個ある。`G` がある。
-- [ ] `x=0` の列と `y=0` の行にタイルがある（左詰め・上詰め）。
-- [ ] 幅 18 列 x 高さ 10 行以内。
-- [ ] レーザーの `position` は片方だけ `.5`。
-- [ ] レーザーの `id` に対応するスイッチが（意図しない限り）ある。
+- [ ] `S` が 1 個ある。`G` がある。 — *verify*
+- [ ] `x=0` の列と `y=0` の行にタイルがある（左詰め・上詰め）。 — *verify*
+- [ ] 幅 21 列 x 高さ 12 行以内（余裕をみて 18 x 10 推奨）。 — *verify*
+- [ ] レーザーの `position` は片方だけ `.5`。 — *verify*
+- [ ] レーザーの `id` に対応するスイッチがある（恒久壁なら `"-"`）。 — *verify*
 - [ ] **ループ 1 で何をさせたいか**が明確（歩数を使い切る / スイッチに乗る / 特定の位置で終わる）。
 - [ ] **ループ 2 のゴーストの経路と実体歩数**を計算した（§6）。
 - [ ] その結果、ゴールに到達する手順が実在する。

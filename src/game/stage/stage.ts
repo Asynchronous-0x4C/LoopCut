@@ -9,13 +9,16 @@ import { Laser } from "./objects";
 import { Ghost } from "./ghost";
 import { UI } from "../ui/ui";
 import { Game } from "../game";
+import { stages } from "./stages";
+import { DEFAULT_STEPS, GridPosition, StageData } from "./stagedata";
+import { validateAllStages } from "./validate";
 
-const stages = Object.values((import.meta as any).glob('./stages/*.json', { eager: true })) as Array<any>;
+if(import.meta.env.DEV) validateAllStages(stages);
 
 export class Stage extends Scene {
   game: Game;
 
-  currentData: any|null = null;
+  currentData: StageData|null = null;
   currentIndex: number = 0;
 
   logic!: StageLogic;
@@ -39,7 +42,7 @@ export class Stage extends Scene {
 
   load(stage: number) {
     this.currentIndex = stage;
-    this.currentData = stages[stage];
+    this.currentData = stages[stage] ?? null;
     if(this.currentData != null) {
       this.initialized = true;
       this.reset(true);
@@ -64,7 +67,9 @@ export class Stage extends Scene {
   }
 
   reset(init: boolean = false) {
-    this.steps = this.currentData.steps ?? 4;
+    const data = this.currentData;
+    if(data === null) return;
+    this.steps = data.steps ?? DEFAULT_STEPS;
 
     this.container.destroy();
     this.container = new Container();
@@ -90,8 +95,8 @@ export class Stage extends Scene {
     app.stage.addChild(this.container);
 
     this.field = new Field();
-    let start: {x: number, y: number};
-    (this.currentData.tiles as Array<string>).forEach((s, y) => {
+    let start: GridPosition|null = null;
+    data.tiles.forEach((s, y) => {
       s.split("").forEach((c, x) => {
         if(c === 'S') {
           start = {
@@ -103,18 +108,20 @@ export class Stage extends Scene {
         if(tile !== null)this.field.addTile(tile);
       });
     });
-
-    const o = this.currentData.objects as Array<any>|null;
-    if(o) {
-      o.forEach(v => {
-        switch(v.type) {
-          case "laser":
-            this.field.addLaser(new Laser(v.position.x, v.position.y, v.id));
-            break;
-          default: break;
-        }
-      })
+    if(start === null) {
+      // validateStage が警告済み。ここで落とさず (0,0) から始めて、遊べる形は保つ
+      console.error(`[LoopCut] ステージ ${this.currentIndex + 1} に 'S' がありません。(0,0) から開始します`);
+      start = { x: 0, y: 0 };
     }
+
+    (data.objects ?? []).forEach(v => {
+      switch(v.type) {
+        case "laser":
+          this.field.addLaser(new Laser(v.position.x, v.position.y, v.id));
+          break;
+        default: break;
+      }
+    });
 
     this.container.addChild(this.field);
 
@@ -125,7 +132,7 @@ export class Stage extends Scene {
       this.ghosts.push(new Ghost(this.player, this.logic.remainSteps));
     }
 
-    this.player = new Player(start!, this.field.gap);
+    this.player = new Player(start, this.field.gap);
 
     this.logic = new StageLogic(this);
 

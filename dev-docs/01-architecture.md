@@ -1,6 +1,6 @@
 # 01. アーキテクチャ
 
-> 記述時点: `main` ブランチ ea470f5 の実装。ソース合計 約 1,300 行。
+> 記述時点: `plus` ブランチ フェーズ 1 完了時点。ソース合計 約 1,430 行。
 
 ## 1. 全体像
 
@@ -28,20 +28,24 @@ index.html
 |---|---:|---|---|
 | [src/main.ts](../src/main.ts) | 71 | Pixi 初期化、`app` / `mouse` / `key` / `startTime` のグローバル公開、リサイズ | グローバル可変状態が 4 つある |
 | [src/common/observable.ts](../src/common/observable.ts) | 24 | `ObservableValue<T>`。値変更時にリスナを呼ぶ | 変更**前**に通知する点に注意（§5） |
+| [src/common/text.ts](../src/common/text.ts) | 21 | 本文テキストの共通スタイル `bodyTextStyle` | フェーズ 1 で追加 |
 | [src/game/game.ts](../src/game/game.ts) | 33 | シーンの Map と切り替え | シーンは起動時に全部インスタンス化される |
 | [src/game/scene.ts](../src/game/scene.ts) | 8 | `Scene` 抽象クラス（`container` + `update`） | 入退場フックが無い |
-| [src/game/title/title.ts](../src/game/title/title.ts) | 72 | タイトル画面、ロゴ SVG 表示、キー入力でステージ 0 へ | 遷移先がハードコード |
-| [src/game/fin/fin.ts](../src/game/fin/fin.ts) | 40 | クリア画面、プレイ時間表示 | Text を `update` 内で遅延生成 |
-| [src/game/ui/ui.ts](../src/game/ui/ui.ts) | 72 | 残歩数ドット（ParticleContainer）、操作説明 | `Stage` を直接参照 |
-| [src/game/stage/stage.ts](../src/game/stage/stage.ts) | 150 | ステージ JSON のロード、シーン再構築、文字 → タイル変換 | **ここが中心。最も肥大化している** |
-| [src/game/stage/stagelogic.ts](../src/game/stage/stagelogic.ts) | 148 | 入力処理、移動判定、ループ状態遷移 | ルールの正はここ |
-| [src/game/stage/stageview.ts](../src/game/stage/stageview.ts) | 61 | 入退場演出（マンハッタン距離による波） | ロジックの `time` を読むだけ |
-| [src/game/stage/field.ts](../src/game/stage/field.ts) | 316 | `Field` / `Tile` / `StartTile` / `EndTile` / `SwitchTile` / `Node` | タイル定義が全部ここに同居 |
+| [src/game/title/title.ts](../src/game/title/title.ts) | 63 | タイトル画面、ロゴ SVG 表示、キー入力でステージ 0 へ | 遷移先がハードコード |
+| [src/game/fin/fin.ts](../src/game/fin/fin.ts) | 31 | クリア画面、プレイ時間表示 | Text を `update` 内で遅延生成 |
+| [src/game/ui/ui.ts](../src/game/ui/ui.ts) | 63 | 残歩数ドット（ParticleContainer）、操作説明 | `Stage` を直接参照 |
+| [src/game/stage/stage.ts](../src/game/stage/stage.ts) | 157 | ステージデータのロード、シーン再構築、文字 → タイル変換 | **ここが中心。最も肥大化している** |
+| [src/game/stage/stagedata.ts](../src/game/stage/stagedata.ts) | 52 | ステージ JSON の型と定数（`StageData` / `DEFAULT_STEPS` / `PERMANENT_WALL_ID` 等） | フェーズ 1 で追加 |
+| [src/game/stage/validate.ts](../src/game/stage/validate.ts) | 119 | ステージデータの検証。`bun run verify` と dev サーバ起動時に走る | フェーズ 1 で追加 |
+| [src/game/stage/stages/index.ts](../src/game/stage/stages/index.ts) | 27 | **プレイ順のステージ配列**。ここの並びが順序の正 | フェーズ 1 で追加 |
+| [src/game/stage/stagelogic.ts](../src/game/stage/stagelogic.ts) | 150 | 入力処理、移動判定、ループ状態遷移 | ルールの正はここ |
+| [src/game/stage/stageview.ts](../src/game/stage/stageview.ts) | 66 | 入退場演出（マンハッタン距離による波） | ロジックの `time` を読むだけ |
+| [src/game/stage/field.ts](../src/game/stage/field.ts) | 292 | `Field` / `Tile` / `StartTile` / `EndTile` / `SwitchTile` | タイル定義が全部ここに同居。フェーズ 2 で分割予定 |
 | [src/game/stage/entity.ts](../src/game/stage/entity.ts) | 14 | `Entity` 抽象クラス（`grid` / `start`） | `move` が抽象化されていない |
 | [src/game/stage/player.ts](../src/game/stage/player.ts) | 50 | プレイヤー。移動履歴 `command` を保持 | `Ghost` とコードがほぼ重複 |
 | [src/game/stage/ghost.ts](../src/game/stage/ghost.ts) | 98 | ゴースト。逆再生コマンドと `remainSteps` | `Player` とコードがほぼ重複 |
 | [src/game/stage/objects.ts](../src/game/stage/objects.ts) | 59 | `Laser`。フィールド上に置く非タイルオブジェクト | 現状ここに 1 種類だけ |
-| [src/styles.css](../src/styles.css) | 116 | **未使用**。Tauri テンプレートの残骸 | 実際のスタイルは `index.html` の `<style>` |
+| [scripts/verify-stages.ts](../scripts/verify-stages.ts) | 36 | `bun run verify` の本体 | フェーズ 1 で追加 |
 
 ## 3. 起動から 1 フレームまで
 
@@ -133,6 +137,9 @@ set value(value: T) {
 
 ## 7. ビルドと配信
 
+- ステージデータは [stages/index.ts](../src/game/stage/stages/index.ts) の明示 import。
+  開発ビルド（`import.meta.env.DEV`）では [stage.ts](../src/game/stage/stage.ts) の
+  モジュール読み込み時に `validateAllStages()` が走る。
 - `vite.config.ts` の `build.outDir` が `docs`、`base` が `./`。
   → `bun run build` すると `docs/` が GitHub Pages 用の成果物として更新される。
 - `src-tauri/tauri.conf.json` の `frontendDist` も `../docs` を指しており、Web とデスクトップで同じ出力を共有する。

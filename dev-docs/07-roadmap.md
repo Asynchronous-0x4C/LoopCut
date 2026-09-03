@@ -62,49 +62,34 @@ flowchart LR
 
 ---
 
-## フェーズ 1 — データ層の型付けと明示化（1 日 / リスク小）
+## フェーズ 1 — データ層の型付けと明示化 ✅ 完了
 
-**目的**: **ステージを AI が安全に追加できる状態を作る。** ここが最優先。
+**目的**: **ステージを AI が安全に追加できる状態を作る。**
 
-- [ ] `src/game/stage/stagedata.ts` を作り、ステージ JSON の型を定義する
+- [x] [src/game/stage/stagedata.ts](../src/game/stage/stagedata.ts) にステージ JSON の型と定数を定義
+      （`StageData` / `DEFAULT_STEPS` / `MAX_COLUMNS` / `MAX_ROWS` / `OBJECT_TYPES` / `PERMANENT_WALL_ID`）
+- [x] [src/game/stage/stages/index.ts](../src/game/stage/stages/index.ts) を作り、
+      `import.meta.glob` を**明示的な import の配列**に置き換え（O-1 / J-1 解消）
+- [x] `stage.ts` の `currentData` に `StageData|null` の型を付け、`any` を排除（Z-11 解消）
+- [x] `S` が無い場合に落ちる問題を解消（`(0,0)` フォールバック + エラーログ）
+- [x] [src/game/stage/validate.ts](../src/game/stage/validate.ts) に `validateStage()` を追加
+- [x] `bun run verify` で全ステージを検証できるようにした（[scripts/verify-stages.ts](../scripts/verify-stages.ts)）
+- [x] 開発サーバ起動時にも同じ検証が走るようにした（`import.meta.env.DEV`）
+- [x] Text スタイルを [src/common/text.ts](../src/common/text.ts) の `bodyTextStyle` に共通化（Z-9 解消）
 
-```ts
-export type StageObjectData =
-  | { type: "laser"; id: string; position: { x: number; y: number } };
+**判断メモ**:
 
-export interface StageData {
-  steps?: number;
-  tiles: string[];
-  objects?: StageObjectData[];
-}
-```
+- **`StageObjectData.type` は `string` のままにした。**
+  JSON は外部データなので `"laser"` のリテラル型で受けると型が合わず、
+  結局キャストが必要になる。境界で `validateStage()` が絞り込む方針にした。
+- **恒久的に消せないレーザーの表現として `id: "-"` を導入した**（`PERMANENT_WALL_ID`）。
+  これが無いと「対応スイッチが無いレーザー」を検証時に typo と区別できない。
+- `src/vite-env.d.ts` を追加して `import.meta.env` に型を付けた。
 
-- [ ] `src/game/stage/stages/index.ts` を作り、**明示的な import の配列**にする（[O-1](06-known-issues.md) / [J-1](06-known-issues.md) を同時に解消）
+**完了条件**: `bun run verify` が全ステージ OK ✅ / `tsc --noEmit` が通る ✅ / `vite build` が通る ✅
 
-```ts
-import type { StageData } from "../stagedata";
-import stage1 from "./stage1.json";
-import stage2 from "./stage2.json";
-// …
-
-export const stages: StageData[] = [stage1, stage2, /* … */];
-```
-
-- [ ] `stage.ts` の `import.meta.glob` を上記に差し替え、`currentData: StageData|null` に型を付ける（[Z-11](06-known-issues.md)）
-- [ ] 開発時のみ動くバリデータ `validateStage(data, name)` を追加する
-  - `S` がちょうど 1 個ある
-  - `G` が 1 個以上ある
-  - `x=0` の列と `y=0` の行にタイルがある（[F-1](06-known-issues.md) 対策）
-  - 幅 ≤ 21・高さ ≤ 12
-  - `objects[].position` が「片方だけ半整数」
-  - レーザーの `id` に対応するスイッチがあるか（無ければ警告のみ）
-  - `import.meta.env.DEV` のときだけ実行し、問題は `console.warn` で出す
-- [ ] Text スタイルを `src/common/text.ts` に共通化する（[Z-9](06-known-issues.md)）
-
-**完了条件**: 存在しないステージ文字や不正なレーザー座標を書くと、
-`bun run dev` の起動時に警告が出る。`tsc --noEmit` が通る。
-
-> **このフェーズが終わった時点で、「ステージを 10 個追加して」を AI に任せられるようになる。**
+> **この時点で「ステージを 10 個追加して」を AI に任せられる。**
+> ただし「本当に解けるか」はまだ機械では検証できない（フェーズ 2.5 で解消）。
 
 ---
 

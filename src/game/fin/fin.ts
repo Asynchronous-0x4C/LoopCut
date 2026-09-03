@@ -2,6 +2,7 @@ import { Text, Ticker } from "pixi.js";
 import { Game } from "../game";
 import { Scene } from "../scene";
 import { startTime } from "../../main";
+import { bodyTextStyle } from "../../common/text";
 
 export class Fin extends Scene {
   game: Game;
@@ -19,17 +20,7 @@ export class Fin extends Scene {
       const t = Math.round((this.time - startTime) / 1000);
       this.text = new Text({
         text: `Thank you for playing!\nプレイ時間: ${Math.floor(t / 60)}:${`${t % 60}`.padStart(2,"0")}`,
-        style: {
-          fontFamily: 'Noto Sans JP',
-          fontSize: 25,
-          fill: 0x646464,
-          dropShadow: {
-              color: '#646464',
-              blur: 0,
-              distance: 3,
-              alpha: 0.25
-          }
-        }
+        style: bodyTextStyle
       });
       this.text.anchor = {x: 0.5, y: 0.5};
       this.text.y = 360;

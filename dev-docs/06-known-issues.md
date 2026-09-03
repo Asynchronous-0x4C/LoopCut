@@ -1,8 +1,8 @@
 # 06. 既知の問題と技術的負債
 
-> 対象: `main` ブランチ ea470f5 時点。15 時間のゲームジャム制作物としての残骸を含む。
-> 各項目に ID を振っているので、コミットメッセージや他の文書から `#L-1` の形で参照すること。
-> 修正したらこの表の状態を **済** に更新する。
+> 対象: `plus` ブランチ フェーズ 1 完了時点。
+> 各項目に ID を振っているので、コミットメッセージや他の文書から `L-1` の形で参照すること。
+> **修正したら末尾の「解決済み」節へ移すこと。**
 
 ## 優先度の凡例
 
@@ -77,23 +77,6 @@ this.offset.x = (1280 - w + this.gap) * 0.5;
 
 **これは `plus` で最も価値の高い拡張のひとつ**（[07-roadmap.md](07-roadmap.md) フェーズ 4）。
 
-### O-1 — ステージの順序がファイル名の辞書順
-**場所**: [stage.ts:13](../src/game/stage/stage.ts#L13)
-
-`import.meta.glob` + `Object.values` のため、`stage10.json` を作ると
-`stage1.json` の次（＝ステージ 2 の位置）に割り込む。
-詳細と回避策は [03-stage-format.md のロード順の罠](03-stage-format.md#41-ロード順の罠)。
-
-### J-1 — ステージ JSON が 10KB を超えるとビルド版だけ壊れる
-**場所**: [stage.ts:42](../src/game/stage/stage.ts#L42) で `currentData.tiles` と読んでいる
-
-Vite の既定 `json.stringify: 'auto'` は 10KB 超の JSON を `JSON.parse` 化し、
-**名前付きエクスポートを生成しなくなる**。そうなると `currentData.tiles` が `undefined` になる。
-`dev` では気付きにくく、`build` 後だけ壊れる。
-
-**恒久対策**: `stages[stage].default ?? stages[stage]` と書くか、明示的な import に切り替える
-（[07-roadmap.md](07-roadmap.md) フェーズ 1 で同時に解消される）。
-
 ### X-1 — ゴーストがゴールに乗るとクリア扱いになる
 **場所**: [stagelogic.ts:135-138](../src/game/stage/stagelogic.ts#L135-L138)
 
@@ -141,44 +124,45 @@ this.grid = this.start = start;   // 同じオブジェクトへの 2 本の参�
 `app.renderer.textureGC` とブラウザのメモリを観察する。
 問題があれば `destroy({ children: true, texture: true })` にする。
 
-### R-1 — `R` リセットの退場アニメだけ短い
-**場所**: [stagelogic.ts:102-105](../src/game/stage/stagelogic.ts#L102-L105)
-
-他の終了経路は `this.time = 70` を設定するが、`R` は設定しないので `time` は 50 のまま。
-**修正**: `this.time = 70;` を足すだけ。
-
-### I-1 — WASD が押されていると同フレームで `R` が評価されない
-**場所**: [stagelogic.ts:73-106](../src/game/stage/stagelogic.ts#L73-L106)
-
-`key.keys` の走査で WASD が先に見つかると `break` するため、`R` の分岐に到達しない。
-移動キーを押しながら `R` を押すと反応しないことがある。
-
 ---
 
 ## ⚪ 掃除対象（動作に影響しない）
 
 | ID | 内容 | 場所 |
 |---|---|---|
-| Z-1 | `styles.css` が Tauri テンプレートの残骸。`index.html` から読み込まれているが、対象要素が 1 つも存在しない | [src/styles.css](../src/styles.css), [index.html:5](../index.html#L5) |
-| Z-2 | `Node` クラスが未使用（`Particle` を継承しただけの残骸） | [field.ts:306-317](../src/game/stage/field.ts#L306-L317) |
-| Z-3 | `addTile()` の中身が空の `if` が 4 つ残っている | [field.ts:67-78](../src/game/stage/field.ts#L67-L78) |
-| Z-4 | `Laser.update()` が空 | [objects.ts:53-55](../src/game/stage/objects.ts#L53-L55) |
+| Z-4 | ~~`Laser.update()` が空~~ **won't fix**。毎フレーム更新するギミックの拡張点として意図的に残している | [objects.ts](../src/game/stage/objects.ts) |
 | Z-5 | `mouse` は更新されているが誰も読んでいない | [main.ts:5](../src/main.ts#L5) |
-| Z-6 | `hasAdjacentTile()` / `gridToWorld()` が未使用（`StageView` は同じ計算を手書きしている） | [field.ts:100](../src/game/stage/field.ts#L100), [field.ts:140](../src/game/stage/field.ts#L140) |
+| Z-6 | `hasAdjacentTile()` が未使用（`gridToWorld()` はフェーズ 0 で `StageView` から使うようにした）。一方通行タイル等で使う想定なので残している | [field.ts](../src/game/stage/field.ts) |
 | Z-7 | `Entity.start` は代入されるだけで読まれない | [entity.ts:9-12](../src/game/stage/entity.ts#L9-L12) |
-| Z-8 | `console.log(this.currentData)` が残っている | [stage.ts:42](../src/game/stage/stage.ts#L42) |
-| Z-9 | Text のスタイル定義が `Title` / `Fin` / `UI` に 3 回コピペされている | [title.ts:21-31](../src/game/title/title.ts#L21-L31) ほか |
 | Z-10 | `Player` と `Ghost` の `update()` / `move()` / `target` / `gap` / `size` がほぼ完全に重複 | [player.ts:37-50](../src/game/stage/player.ts#L37-L50), [ghost.ts:86-98](../src/game/stage/ghost.ts#L86-L98) |
-| Z-11 | ステージデータが `any`。`currentData.tiles` の型安全性がゼロ | [stage.ts:18](../src/game/stage/stage.ts#L18) |
 | Z-12 | Tauri 側の `greet` コマンドがテンプレートのまま未使用 | [src-tauri/src/lib.rs](../src-tauri/src/lib.rs) |
 | Z-13 | 補間に `Ticker.deltaTime` を掛けていないため、動きがフレームレート依存 | 全体（[05-visual-style.md](05-visual-style.md#51-補間は一次遅れのみ)） |
 | Z-14 | `noUnusedLocals` / `noUnusedParameters` が `false`。L-1 を隠していた原因 | [tsconfig.json](../tsconfig.json) |
-| Z-15 | 自動テストが存在しない。ルール変更の回帰を検出できない | — |
+| Z-15 | ルールの回帰テストが無い。`bun run verify` はデータ検証のみで、「実際に解けるか」は見ていない（フェーズ 2.5 で解消予定） | [scripts/verify-stages.ts](../scripts/verify-stages.ts) |
 
 ---
 
 ## 触るときの注意
 
-- **L-1 と F-1 を直すとステージの解き味が変わる可能性がある。** 修正後は全ステージを通しプレイする。
+- **L-1 と F-1 を直すとステージの解き味が変わる可能性がある。**
+  フェーズ 2.5 のソルバを先に用意してから直すこと（[07-roadmap.md](07-roadmap.md)）。
 - **`docs/` を手で編集しない。** `bun run build` の出力であり、GitHub Pages の配信元。
 - `main` ブランチは公開済みビルドと対応しているので、修正は `plus` で行う。
+
+---
+
+## ✅ 解決済み
+
+| ID | 内容 | 解決した方法 | フェーズ |
+|---|---|---|---|
+| Z-1 | `styles.css` が Tauri テンプレートの残骸 | ファイルと `<link>` を削除 | 0 |
+| Z-2 | `Node` クラスが未使用 | 削除 | 0 |
+| Z-3 | `addTile()` に空の `if` が 4 つ | 削除 | 0 |
+| Z-8 | `console.log(this.currentData)` が残っている | 削除 | 0 |
+| R-1 | `R` リセットの退場アニメだけ短い | `this.time = 70;` を設定 | 0 |
+| I-1 | WASD 押下中に `R` が効かない | `R` を WASD 走査の前に独立して判定 | 0 |
+| O-1 | ステージ順がファイル名の辞書順 | `stages/index.ts` の明示 import 配列に変更 | 1 |
+| J-1 | ステージ JSON が 10KB 超でビルド版だけ壊れる | 名前付きエクスポート依存をやめ default import に | 1 |
+| Z-9 | Text スタイルの 3 重コピペ | `src/common/text.ts` の `bodyTextStyle` に集約 | 1 |
+| Z-11 | ステージデータが `any` | `StageData` 型と `validateStage()` を追加 | 1 |
+| — | `S` が無いとクラッシュする | `(0,0)` フォールバック + `bun run verify` の検査 | 1 |
