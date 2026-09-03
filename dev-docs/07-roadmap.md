@@ -157,17 +157,17 @@ flowchart LR
 - [x] `bun run verify` がデータ検証 + 解の存在確認を行う
 - [x] 既存 7 ステージの**最小ループ数を `EXPECTED_LOOPS` に固定**（回帰検出用）
 
-**結果**（全 7 ステージ、約 1 秒。手順はフェーズ 3 の L-1 修正後の値）:
+**結果**（全 7 ステージ、約 1 秒）:
 
 | # | 最小ループ数 | 手順 |
 |---|---:|---|
 | 1 | 1 | `DDDD` |
 | 2 | 2 | `AAAADDDD` |
 | 3 | 2 | `DDDWADS` |
-| 4 | 2 | `DSDWAA` |
+| 4 | 2 | `SDWDSAA` |
 | 5 | 2 | `DSSDWDSDDDDDDDDDD` |
 | 6 | 2 | `DSSDDWWADSSDSS` |
-| 7 | 4 | `DWWDDDDDDSSSDDWDWWDDDDSSADDD` |
+| 7 | 4 | `DWWDDDDSSADSSSDDWDWWDDDDSSADDD` |
 
 > ステージ 2 の `AAAADDDD` は [02-game-rules.md](02-game-rules.md) で手で導いた解法と一致した。
 > リファクタでルールが壊れていないことの裏付けになっている。

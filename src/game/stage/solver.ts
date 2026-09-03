@@ -1,5 +1,5 @@
 import { Ticker } from "pixi.js";
-import { Direction, DIRECTIONS } from "./direction";
+import { Direction, DIRECTIONS, directionFromKey } from "./direction";
 import { Field } from "./field";
 import { Ghost } from "./ghost";
 import { Player } from "./player";
@@ -147,6 +147,41 @@ const DIRECTION_NAMES: Record<Direction, string> = {
 
 export function formatMoves(moves: Array<Direction>): string {
   return moves.map(d => DIRECTION_NAMES[d]).join("");
+}
+
+/** "DSDW" のような文字列を方向の列にする */
+export function parseMoves(text: string): Array<Direction> {
+  const moves: Array<Direction> = new Array();
+  for(const c of text) {
+    const d = directionFromKey(c.toLowerCase());
+    if(d === null) throw new Error(`手順に使えない文字です: '${c}'（W/A/S/D のみ）`);
+    moves.push(d);
+  }
+  return moves;
+}
+
+export interface RouteResult {
+  cleared: boolean;
+  /** 何手目まで進めたか。動けなくなった場合はその手前まで */
+  played: number;
+}
+
+/**
+ * 決まった手順を再生して、クリアできるかを確かめる。
+ *
+ * ソルバは「解が存在するか」しか見ないので、**別解があると
+ * 「本来意図した手順が壊れた」ことを見逃す**。
+ * 既知の手順をここで固定しておくと、その回帰を検出できる。
+ */
+export function playRoute(data: StageData, text: string): RouteResult {
+  const moves = parseMoves(text);
+  const sim = new Sim(data);
+  sim.settle();
+  for(let i = 0; i < moves.length; ++i) {
+    if(sim.cleared) return { cleared: true, played: i };
+    if(!sim.step(moves[i])) return { cleared: false, played: i };
+  }
+  return { cleared: sim.cleared, played: moves.length };
 }
 
 function replay(data: StageData, path: Array<Direction>): Sim|null {

@@ -4,6 +4,7 @@ import { Player } from "../stage/player";
 import { applyWave, entityAlpha } from "../stage/fieldanim";
 import { damp } from "../../common/interpolate";
 import { ExitArrow } from "./selecttiles";
+import { bodyTextStyle } from "../../common/text";
 
 /**
  * 選択画面の描画。フィールドの入退場アニメ、カメラ、自機の上のラベルを担当する。
@@ -21,6 +22,9 @@ export class SelectView extends Container {
   private labelBox: Container = new Container();
   private labelBg: Graphics = new Graphics();
   private labelText: Text;
+
+  /** 画面左上の操作説明。カメラでは動かないよう world の外に置く */
+  private controls: Text;
 
   /** カメラが向いているワールド座標 */
   private target = { x: 640, y: 360 };
@@ -72,6 +76,15 @@ export class SelectView extends Container {
     this.world.addChild(this.labelBox);
 
     this.addChild(this.world);
+
+    // 操作説明はステージと同じ位置・同じスタイル
+    this.controls = new Text({
+      text: "移動: W/A/S/D\nステージへ: 赤い矢印の向きへ移動",
+      style: bodyTextStyle,
+      x: 5,
+      y: 30
+    });
+    this.addChild(this.controls);
   }
 
   /** ラベルを出す。null で消す */
@@ -113,6 +126,7 @@ export class SelectView extends Container {
     const alpha = entityAlpha(time);
     this.player.alpha = alpha;
     this.labelBox.alpha = alpha;
+    this.controls.alpha = alpha * 0.8;
 
     const k = damp(0.1, deltaTime);
     this.current.x += (this.target.x - this.current.x) * k;

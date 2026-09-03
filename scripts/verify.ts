@@ -12,7 +12,7 @@
  */
 import { stages } from "../src/game/stage/stages";
 import { validateStage } from "../src/game/stage/validate";
-import { formatMoves, solve } from "../src/game/stage/solver";
+import { formatMoves, playRoute, solve } from "../src/game/stage/solver";
 import { DEFAULT_STEPS } from "../src/game/stage/stagedata";
 import { selectMaps } from "../src/game/select/maps";
 import { allStageLabels, validateSelectMap } from "../src/game/select/validate";
@@ -31,6 +31,20 @@ const EXPECTED_LOOPS: Record<number, number> = {
   5: 2,
   6: 2,
   7: 4
+};
+
+/**
+ * 「この手順でクリアできること」を固定した既知の解法。
+ *
+ * ソルバは解の存在しか見ないので、**別解があると意図した手順が壊れても気づけない**。
+ * 実際、詰み判定がレーザーを見るようになったとき（L-1）、
+ * ステージ 4 の本来の解法 `SDWDSAA` が壊れたのに別解 `DSDWAA` のせいで検出できなかった。
+ * ルールの意図を守りたい手順は、ここに書いておくこと。
+ */
+const KNOWN_ROUTES: Record<number, Array<string>> = {
+  // ゴーストがスイッチを踏んでレーザーが開くのを待ってから進む手順。
+  // 詰み判定をゴーストの移動より前に戻すと、これが壊れる。
+  4: ["SDWDSAA", "DSDWAA"]
 };
 
 /** 何ループまで探索するか */
@@ -72,6 +86,13 @@ stages.forEach((data, i) => {
       }
       summary = `loops=${result.loops} moves=${formatMoves(result.moves)}`;
     }
+
+    (KNOWN_ROUTES[no] ?? []).forEach(route => {
+      const r = playRoute(data, route);
+      if(!r.cleared) {
+        problems.push(`既知の解法 ${route} がクリアできなくなりました（${r.played} 手目で停止）`);
+      }
+    });
   }
   report(problems.length === 0,
     `${name.padEnd(8)} ${shape.padEnd(7)} steps=${String(steps).padEnd(3)} ${summary}`,

@@ -131,8 +131,12 @@ export class StageLogic {
 
     this.ctx.field.nextTurn();
 
+    // 歩数切れと詰みの判定は、**ゴーストが動いたあと**に行う。
+    // ゴーストがスイッチを踏んでレーザーが開くことがあるので、
+    // プレイヤーの移動直後に判定すると「ゴーストが道を開けてくれる」手が成立しない。
     const after = this.ctx.player.grid;
-    if(this.state === LogicState.Loop && this.ctx.field.isJammed(after.x, after.y)) {
+    if(this.state === LogicState.Loop
+       && (this.remainSteps === 0 || this.ctx.field.isJammed(after.x, after.y))) {
       this.endLoop();
     }
     return true;
@@ -179,10 +183,7 @@ export class StageLogic {
       return true;
     }
 
-    if(e instanceof Player && (this.remainSteps === 0 || this.ctx.field.isJammed(e.grid.x, e.grid.y))) {
-      this.endLoop();
-      return true;
-    }
+    // 歩数切れ・詰みはここでは見ない。ゴーストが動いたあとに tryMove() が判定する
     return false;
   }
 }
