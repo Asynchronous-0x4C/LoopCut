@@ -1,43 +1,76 @@
 import { Ticker } from "pixi.js";
-import { Stage } from "./stage";
-import { key } from "../../main";
-import { Direction, EndTile, SwitchTile, Tile, TileState } from "./field";
+import { Direction } from "./direction";
+import { Field } from "./field";
+import { Tile } from "./tiles";
+import { Entity } from "./entity";
 import { Ghost } from "./ghost";
 import { Player } from "./player";
 
 export enum LogicState {
+  /** タイルがせり上がってくる演出中。操作不可 */
   Start,
+  /** 操作可能 */
   Loop,
+  /** ループ終了の演出中。終わったら restart() */
   Next,
+  /** クリア演出中。終わったら clear() */
   End
 }
 
+/**
+ * `StageLogic` が必要とする「ステージ」の最小面。
+ *
+ * `Stage`（PixiJS のシーン）だけでなく、ヘッドレスなソルバも
+ * これを実装することで**まったく同じルールコードを再利用できる**。
+ * ここに描画や入力を持ち込まないこと。
+ */
+export interface StageContext {
+  readonly field: Field;
+  readonly player: Player;
+  readonly ghosts: Array<Ghost>;
+  /** 1 ループで動ける回数 */
+  readonly steps: number;
+  /**
+   * ループをやり直す。
+   * @param keepGhost 直前のプレイヤーをゴーストとして引き継ぐか（R リセットでは false）
+   */
+  restart(keepGhost: boolean): void;
+  /** ステージクリア */
+  clear(): void;
+}
+
+/** ループ終了・クリア演出の長さ（フレーム） */
+const OUTRO_TIME = 70;
+
+/**
+ * ゲームのルールそのもの。**描画にも入力にも依存しない。**
+ *
+ * 入力は `KeyboardInput`（stageinput.ts）が `tryMove()` / `requestReset()` を
+ * 呼ぶ形で外から与える。ルール仕様は dev-docs/02-game-rules.md。
+ */
 export class StageLogic {
-  stage: Stage;
+  ctx: StageContext;
   state: LogicState = LogicState.Start;
   time: number = -20;
 
-  inputAvailable = false;
+  /** このループでプレイヤーが残り何歩動けるか */
   remainSteps: number;
-  selfReset = false;
 
-  constructor(stage: Stage) {
-    this.stage = stage;
-    this.remainSteps = stage.steps;
-    const pt = stage.field.getTile(stage.player.grid.x, stage.player.grid.y);
-    pt!.state.value = TileState.Used;
-    if(pt instanceof SwitchTile) {
-      pt.pushed.value = true;
-    }
-    stage.ghosts.forEach(g => {
-      const t = stage.field.getTile(g.grid.x, g.grid.y);
-      if(g.remainSteps.value > 0){
-        t!.state.value = TileState.Used;
-        --g.remainSteps.value;
-      }
-      if(t instanceof SwitchTile) {
-        t.pushed.value = true;
-      }
+  /** 次の restart() でゴーストを引き継ぐか */
+  private keepGhost: boolean = true;
+
+  constructor(ctx: StageContext) {
+    this.ctx = ctx;
+    this.remainSteps = ctx.steps;
+
+    // ループ開始時、プレイヤーとゴーストはそれぞれの開始タイルを占有する
+    ctx.field.getTile(ctx.player.grid.x, ctx.player.grid.y)?.onEnter(true);
+    ctx.ghosts.forEach(g => {
+      const t = ctx.field.getTile(g.grid.x, g.grid.y);
+      if(t === null) return;
+      const solid = g.solid;
+      t.onEnter(solid);
+      if(solid) --g.remainSteps.value;
     });
   }
 
@@ -50,100 +83,104 @@ export class StageLogic {
           this.state = LogicState.Loop;
         }
         break;
-      case LogicState.Loop: this.loop(); break;
+      case LogicState.Loop:
+        // 操作は外（KeyboardInput）から tryMove() / requestReset() で入る
+        break;
       case LogicState.Next:
         this.time -= t.deltaTime;
         if(this.time <= 0) {
           this.time = 0;
-          this.stage.reset(this.selfReset);
+          this.ctx.restart(this.keepGhost);
         }
         break;
       case LogicState.End:
         this.time -= t.deltaTime;
         if(this.time <= 0) {
           this.time = 0;
-          this.stage.load(this.stage.currentIndex + 1);
+          this.ctx.clear();
         }
         break;
     }
   }
 
-  loop() {
-    // リセットは移動キーより先に、独立して判定する（移動キーを押しながらでも効くように）
-    if(key.keys.has('r')) {
-      this.state = LogicState.Next;
-      this.time = 70;
-      this.selfReset = true;
-      return;
-    }
-    for(let k of key.keys) {
-      if(k === 'w' || k === 'a' || k === 's' || k === 'd') {
-        if(!this.inputAvailable) break;
-        let p = this.stage.player.grid;
-        let dir;
-        switch(k) {
-          case "w": dir = Direction.Up; break;
-          case "a": dir = Direction.Left; break;
-          case "s": dir = Direction.Down; break;
-          case "d": dir = Direction.Right; break;
-        }
-        const t = this.stage.field.getAdjacentTile(p.x, p.y, dir);
-        if(t !== null && t.state.value === TileState.Unused) {
-          if(this.next(this.stage.player, t, dir))break;
-          this.stage.ghosts.forEach(g => {
-            const dir = g.command.pop();
-            if(dir == null) return;
-            const t = this.stage.field.getAdjacentTile(g.grid.x, g.grid.y, dir);
-            this.next(g, t, dir);
-          });
-          p = this.stage.player.grid;
-          if(this.stage.field.isJammed(p.x, p.y)) {
-            this.state = LogicState.Next;
-            this.time = 70;
-            break;
-          }
-        }
-        break;
+  /**
+   * プレイヤーを 1 歩動かす。動けたら（＝1 ターン進んだら）true。
+   * 進入できないタイルや操作不能な状態なら false を返して何も起こさない。
+   */
+  tryMove(dir: Direction): boolean {
+    if(this.state !== LogicState.Loop) return false;
+
+    const p = this.ctx.player.grid;
+    const t = this.ctx.field.getAdjacentTile(p.x, p.y, dir);
+    if(t === null || !t.canEnter()) return false;
+
+    if(this.next(this.ctx.player, t, dir)) return true;
+
+    // プレイヤーが動いたぶんだけ、ゴーストも軌跡を 1 歩ぶん逆再生する
+    this.ctx.ghosts.forEach(g => {
+      const gdir = g.command.pop();
+      if(gdir == null) return;
+      const gt = this.ctx.field.getAdjacentTile(g.grid.x, g.grid.y, gdir);
+      if(gt === null) {
+        // 自分の軌跡を辿っている限り起きないはず。起きたら経路の作り方が壊れている
+        console.error("[LoopCut] ゴーストの移動先にタイルがありません。移動を打ち切ります");
+        return;
       }
+      this.next(g, gt, gdir);
+    });
+
+    this.ctx.field.nextTurn();
+
+    const after = this.ctx.player.grid;
+    if(this.state === LogicState.Loop && this.ctx.field.isJammed(after.x, after.y)) {
+      this.endLoop();
     }
-    if(!key.pressed) {
-      this.inputAvailable = true;
-    }
+    return true;
   }
 
-  next(e: Player|Ghost, t: Tile|null, dir: Direction): boolean {
-    let p = e.grid;
-    if((e instanceof Player || (e instanceof Ghost && e.remainSteps.value > 0)) && this.stage.field.existsLaser(p.x, p.y, dir)) {
-      const dist = 0.5 * this.stage.field.gap - e.size * 0.5;
-      switch(dir) {
-        case Direction.Up: e.target.y -= dist; break;
-        case Direction.Down: e.target.y += dist; break;
-        case Direction.Right: e.target.x += dist; break;
-        case Direction.Left: e.target.x -= dist; break;
-      }
-      this.state = LogicState.Next;
-      this.time = 70;
+  /** R キーによるリセット。ゴーストを引き継がずにやり直す */
+  requestReset() {
+    if(this.state !== LogicState.Loop) return;
+    this.keepGhost = false;
+    this.endLoop();
+  }
+
+  private endLoop() {
+    this.state = LogicState.Next;
+    this.time = OUTRO_TIME;
+  }
+
+  /**
+   * エンティティ 1 体を 1 歩進める。
+   * @returns このループ（またはステージ）がここで終わったら true
+   */
+  private next(e: Entity, t: Tile, dir: Direction): boolean {
+    const solid = e.solid;
+
+    if(solid && this.ctx.field.existsLaser(e.grid.x, e.grid.y, dir)) {
+      e.bump(dir);
+      this.endLoop();
       return true;
     }
+
     e.move(dir);
-    p = e.grid;
-    if(e instanceof Player || (e instanceof Ghost && e.remainSteps.value > 0))this.stage.field.getTile(p.x, p.y)!.state.value = TileState.Used;
-    if(e instanceof Player){
+    t.onEnter(solid);
+
+    if(e instanceof Player) {
       --this.remainSteps;
-    } else if(e instanceof Ghost && e.remainSteps.value > 0) {
+    } else if(e instanceof Ghost && solid) {
       --e.remainSteps.value;
     }
-    this.inputAvailable = false;
-    if(t instanceof EndTile) {
+
+    // ゴールを踏めるのはプレイヤーだけ
+    if(e instanceof Player && t.isGoal) {
       this.state = LogicState.End;
-      this.time = 70;
+      this.time = OUTRO_TIME;
       return true;
-    } else if(t instanceof SwitchTile) {
-      t.pushed.value = true;
     }
-    if(e instanceof Player && (this.remainSteps === 0 || this.stage.field.isJammed(p.x, p.y))) {
-      this.state = LogicState.Next;
-      this.time = 70;
+
+    if(e instanceof Player && (this.remainSteps === 0 || this.ctx.field.isJammed(e.grid.x, e.grid.y))) {
+      this.endLoop();
       return true;
     }
     return false;

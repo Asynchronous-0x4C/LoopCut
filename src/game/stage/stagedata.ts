@@ -30,6 +30,9 @@ export interface StageData {
 /** steps を省略したときの既定値 */
 export const DEFAULT_STEPS = 4;
 
+/** 同時に存在できるゴーストの数。ゲーム本体もソルバもこの値を使う */
+export const MAX_GHOSTS = 1;
+
 /** 実装済みの objects[].type */
 export const OBJECT_TYPES = ["laser"] as const;
 

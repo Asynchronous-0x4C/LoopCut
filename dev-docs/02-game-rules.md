@@ -1,7 +1,8 @@
 # 02. ゲームルール仕様
 
 > **この章は現行実装の厳密な記述である。** 直感的な説明ではなく、コードがそう動くという事実を書いている。
-> ルールを変更したらこの章も必ず更新すること。正の実装は [stagelogic.ts](../src/game/stage/stagelogic.ts) と [field.ts](../src/game/stage/field.ts)。
+> ルールを変更したらこの章も必ず更新し、**`bun run verify` を通すこと**（既存ステージが解けるか自動検証される）。
+> 正の実装は [stagelogic.ts](../src/game/stage/stagelogic.ts) / [field.ts](../src/game/stage/field.ts) / [tiles.ts](../src/game/stage/tiles.ts)。
 
 ## 1. 基本ルール
 
@@ -13,12 +14,13 @@
 
 ### 入力の性質
 
+入力の解釈は [`KeyboardInput`](../src/game/stage/stageinput.ts) が担当し、
+ルール側（`StageLogic`）は `tryMove(dir)` / `requestReset()` を受けるだけ。
+
 - **1 回の押下につき 1 マス。** 押しっぱなしでは進まない。
-  `inputAvailable` は「キーが 1 つも押されていないフレーム」でのみ `true` に戻る
-  （[stagelogic.ts:107-109](../src/game/stage/stagelogic.ts#L107-L109)）。
+  内部フラグ `available` は「キーが 1 つも押されていないフレーム」でのみ `true` に戻る。
 - 複数キー同時押しの場合、`Set` の挿入順で最初に見つかった `WASD` が採用される。
-- `R` はリセット。ただし `WASD` のいずれかが先に見つかると同フレームでは評価されない
-  （[stagelogic.ts:73-106](../src/game/stage/stagelogic.ts#L73-L106)）。
+- `R` はリセット。**移動キーより先に独立して判定される**ので、移動キーを押しながらでも効く。
 
 ## 2. ループ
 
@@ -29,11 +31,11 @@
 
 | 条件 | 判定箇所 | 遷移先 |
 |---|---|---|
-| 残歩数が 0 になった | [stagelogic.ts:142](../src/game/stage/stagelogic.ts#L142) | `Next`（ゴースト継承あり） |
-| 詰み（隣接する `Unused` タイルが無い） | [stagelogic.ts:142](../src/game/stage/stagelogic.ts#L142), [:95](../src/game/stage/stagelogic.ts#L95) | `Next` |
-| 進行方向にアクティブなレーザーがある | [stagelogic.ts:114-125](../src/game/stage/stagelogic.ts#L114-L125) | `Next` |
-| `R` キー | [stagelogic.ts:102-105](../src/game/stage/stagelogic.ts#L102-L105) | `Next`（`selfReset = true` → ゴースト**破棄**） |
-| `G` に進入 | [stagelogic.ts:135-138](../src/game/stage/stagelogic.ts#L135-L138) | `End` → 次ステージ |
+| 残歩数が 0 になった | `StageLogic.next()` | `Next`（ゴースト継承あり） |
+| 詰み（隣接する進入可能タイルが無い） | `StageLogic.next()` / `tryMove()` | `Next` |
+| 進行方向にアクティブなレーザーがある | `StageLogic.next()` | `Next` |
+| `R` キー | `StageLogic.requestReset()` | `Next`（`keepGhost = false` → ゴースト**破棄**） |
+| `G` に進入 | `StageLogic.next()` | `End` → 次ステージ |
 
 > ゴール判定は残歩数チェックより**先**に行われるため、最後の 1 歩でゴールしてもクリアになる。
 > レーザー判定はゴール判定より**先**なので、ゴール直前のレーザーはちゃんと塞ぐ。
@@ -44,12 +46,12 @@
 
 ### 3.1 経路
 
-- ゴーストは**プレイヤーが最後にいた位置**から出発する（[stage.ts:125](../src/game/stage/stage.ts#L125)）。
+- ゴーストは**プレイヤーが最後にいた位置**から出発する（`Stage.reset()` の `new Ghost(...)`）。
 - ゴーストのコマンド列は、プレイヤーの移動履歴 `command` の各方向を**反転**したもの
-  （[ghost.ts:27-34](../src/game/stage/ghost.ts#L27-L34)）。
-- 実行時は `command.pop()` で**末尾から**取り出す（[stagelogic.ts:89](../src/game/stage/stagelogic.ts#L89)）。
+  （[ghost.ts](../src/game/stage/ghost.ts) のコンストラクタ）。
+- 実行時は `command.pop()` で**末尾から**取り出す（`StageLogic.tryMove()`）。
   → 結果として、**プレイヤーの軌跡を終点から始点へ逆再生する。**
-- ゴーストが動くのは、**プレイヤーが移動に成功したフレームだけ**（[stagelogic.ts:88-93](../src/game/stage/stagelogic.ts#L88-L93)）。
+- ゴーストが動くのは、**プレイヤーが移動に成功したフレームだけ**。
   プレイヤーとゴーストは常に同時に 1 歩進む。
 
 ### 3.2 実体（solid）と非実体
@@ -60,19 +62,19 @@
 |---|---|---|
 | タイルを `Used` にする | する（＝プレイヤーの邪魔をする） | しない |
 | レーザーに阻まれる | 阻まれる（ループ終了） | 素通りする |
-| スイッチを押す | 押す | **押す**（[stagelogic.ts:139-141](../src/game/stage/stagelogic.ts#L139-L141)） |
-| 見た目 | 濃い二重枠（alpha 0.9） | 薄い枠（alpha 0.5）[ghost.ts:71-83](../src/game/stage/ghost.ts#L71-L83) |
+| スイッチを押す | 押す | **押す**（`SwitchTile.onEnter()` が `solid` を見ない） |
+| 見た目 | 濃い二重枠（alpha 0.9） | 薄い枠（alpha 0.5）[ghost.ts](../src/game/stage/ghost.ts) |
 
 > **スイッチだけは実体の有無に関係なく押せる。** これは仕様であり、ステージ 2 の解法の核心（§6）。
 
 ### 3.3 `remainSteps` の初期値 — 「歩数の保存則」
 
 ゴーストの `remainSteps` の初期値は、**そのループでプレイヤーが余らせた歩数**
-（`stage.logic.remainSteps`, [stage.ts:125](../src/game/stage/stage.ts#L125)）。
+（`Stage.reset()` が `new Ghost(this.player, this.logic.remainSteps)` で渡す）。
 
 - ループ開始時、ゴーストは出発タイルを占有して `remainSteps` を 1 消費する
-  （[stagelogic.ts:32-41](../src/game/stage/stagelogic.ts#L32-L41)）。
-- 以降 1 歩ごとに 1 消費する（[stagelogic.ts:131-133](../src/game/stage/stagelogic.ts#L131-L133)）。
+  （`StageLogic` のコンストラクタ）。
+- 以降 1 歩ごとに 1 消費する（`StageLogic.next()`）。
 
 つまり:
 
@@ -86,7 +88,7 @@
 
 ### 3.4 ゴーストの数
 
-`Stage.maxGhosts = 1` 固定（[stage.ts:26](../src/game/stage/stage.ts#L26)）。
+`MAX_GHOSTS = 1` 固定（[stagedata.ts](../src/game/stage/stagedata.ts)。ゲーム本体もソルバもこの値を使う）。
 上限に達していると古いゴーストを `shift()` で捨てる。
 
 > **2 体以上に増やすには修正が必要。** 現状、古いゴーストは前ループで消費された状態
@@ -104,12 +106,20 @@
 | `a`〜`z` | `SwitchTile` | スイッチ。文字がそのまま ID になる |
 | 空白・その他 | — | タイル無し |
 
-変換は [stage.ts:138-150 `getTile()`](../src/game/stage/stage.ts#L138-L150)。
+変換は [tiles.ts](../src/game/stage/tiles.ts) の `tileRegistry` と `createTile()`。
 
 ### タイル状態
 
-`TileState.Used` / `TileState.Unused` の 2 値（[field.ts:6-9](../src/game/stage/field.ts#L6-L9)）。
-`Used` になると描画 alpha が 0.2 に向かって補間される（[field.ts:162-168](../src/game/stage/field.ts#L162-L168)）。
+`TileState.Used` / `TileState.Unused` の 2 値（[tiles.ts](../src/game/stage/tiles.ts)）。
+`Used` になると描画 alpha が 0.2 に向かって補間される。
+
+進入の可否と進入時の処理は `Tile` の 3 つのメンバに集約されている。
+
+| メンバ | 意味 |
+|---|---|
+| `canEnter(): boolean` | 進入できるか。既定は `state === Unused` |
+| `onEnter(solid: boolean): void` | 進入されたときの処理。既定は `solid` なら `Used` にする |
+| `get isGoal(): boolean` | 進入したらクリアか。`EndTile` だけ `true` |
 
 **状態は `Used → Unused` に戻らない**（コード上は対応しているが、そうする経路が無い）。
 
@@ -117,7 +127,7 @@
 
 - 進入するか、ループ開始時にそのタイル上にいると `pushed = true` になる。
 - `pushed` になると、**同じ ID を持つすべてのレーザーが非アクティブになる**
-  （[field.ts:269-276](../src/game/stage/field.ts#L269-L276)）。
+  結線は `Field.addTile()` が行う（タイルは `Field` を参照しない）。
 - **一度押すとそのループ中は戻らない。** 色が水色 `#5fc3c9` → 灰色 `#a4b1b2` に変わる。
 - ループが終わるとフィールドごと作り直されるので、押下状態もリセットされる。
 
@@ -128,9 +138,9 @@
 - `vertical = Math.round(y) === y`、つまり **`y` が整数なら縦向きのビーム**（横方向の通行を塞ぐ）。
 - `id` が `SwitchTile` の文字と一致すると、そのスイッチで無効化される。
 - 実体のあるエンティティが横切ろうとすると、半歩だけ突っ込んで止まりループ終了
-  （[stagelogic.ts:114-125](../src/game/stage/stagelogic.ts#L114-L125)）。
+  （`StageLogic.next()` の先頭）。
 
-判定は [field.ts:129-138 `existsLaser()`](../src/game/stage/field.ts#L129-L138):
+判定は [field.ts](../src/game/stage/field.ts) の `existsLaser()`:
 
 ```ts
 // (x,y) から dir 方向へ動くとき、その中間座標にアクティブなレーザーがあるか
@@ -140,8 +150,8 @@ Right: x += 0.5    Left:  x -= 0.5
 
 ## 6. 詰み判定 (`isJammed`)
 
-[field.ts:110-127](../src/game/stage/field.ts#L110-L127)。
-**隣接 4 方向すべてに「存在してかつ `Unused` なタイル」が無ければ詰み。**
+[field.ts](../src/game/stage/field.ts) の `isJammed()`。
+**隣接 4 方向すべてに「存在してかつ `canEnter()` なタイル」が無ければ詰み。**
 
 > ⚠️ **既知のバグ**: レーザーで塞がれている方向を「通れる」と誤判定する。
 > 結果、レーザーに完全包囲された状態では詰み判定が出ず、プレイヤーはレーザーに突っ込んで
@@ -150,25 +160,26 @@ Right: x += 0.5    Left:  x -= 0.5
 
 ## 7. 1 ターンの処理順序
 
-`StageLogic.loop()` が 1 フレームで行うこと（[stagelogic.ts:71-110](../src/game/stage/stagelogic.ts#L71-L110)）:
+`StageLogic.tryMove(dir)` が行うこと:
 
 ```mermaid
 flowchart TD
-  A[WASD キーを検出] --> B{inputAvailable?}
+  A[KeyboardInput が WASD を検出] --> B{available?}
   B -- no --> Z[何もしない]
   B -- yes --> C[移動先タイルを取得]
-  C --> D{存在 かつ Unused?}
+  C --> D{存在 かつ canEnter?}
   D -- no --> Z
   D -- yes --> E[next: プレイヤー移動]
   E --> F{レーザー衝突?}
   F -- yes --> X[Next へ / 終了]
-  F -- no --> G[移動・タイルを Used に・残歩数 -1]
+  F -- no --> G[移動・onEnter・残歩数 -1]
   G --> H{移動先が G?}
   H -- yes --> Y[End へ / 終了]
   H -- no --> I{残歩数 0 or 詰み?}
   I -- yes --> X
   I -- no --> J[各ゴーストが 1 歩逆再生]
-  J --> K{ゴーストがレーザー衝突?}
+  J --> J2[Field.nextTurn]
+  J2 --> K{ゴーストがレーザー衝突?}
   K -- yes --> X
   K -- no --> L{プレイヤーが詰み?}
   L -- yes --> X
@@ -191,7 +202,7 @@ flowchart TD
 
 `StageView` はこの `time` を 0〜50 にクランプして、タイルごとの
 **マンハッタン距離 `x + y`** に応じた遅延で波状に animation させる
-（[stageview.ts:36-61](../src/game/stage/stageview.ts#L36-L61)）。
+（[stageview.ts](../src/game/stage/stageview.ts)）。
 プレイヤーとゴーストと UI は `time` が 45 を超えてから点滅しながらフェードインする。
 
 ## 9. ステージ 2 の解法（ルールの理解確認用）
@@ -213,3 +224,28 @@ laser a: x=7.5, y=0  … タイル(7,0) と (8,0) の間 ＝ ゴールの直前
 
 この「実体が無くてもスイッチは押せる」「ゴーストは自分の軌跡を逆再生する」の
 2 点が理解できていれば、ステージ設計は書ける。
+
+## 10. ルールの自動検証
+
+`bun run verify` は [solver.ts](../src/game/stage/solver.ts) の `Sim` を使って
+**この章に書いたルールをそのまま**（＝ゲーム本体と同じ `StageLogic` を）動かし、
+全ステージが解けることを確認する。
+
+現在の最小ループ数と、ソルバが見つけた手順:
+
+| # | 最小ループ数 | 手順（W/A/S/D） |
+|---|---:|---|
+| 1 | 1 | `DDDD` |
+| 2 | 2 | `AAAADDDD` |
+| 3 | 2 | `DDDWADS` |
+| 4 | 2 | `SDWDSAA` |
+| 5 | 2 | `DSSDWDSDDDDDDDDDD` |
+| 6 | 2 | `DSSDDWWADSSDSS` |
+| 7 | 4 | `DWWDDDDSSADSSSDDWDWWDDDDSSADDD` |
+
+**ルールを変えるとこの表が変わる。** 期待値は
+[scripts/verify-stages.ts](../scripts/verify-stages.ts) の `EXPECTED_LOOPS` に固定してあり、
+ずれると `bun run verify` が落ちる。意図した変更なら期待値とこの表を更新すること。
+
+> ステージ 2 の `AAAADDDD` は §9 で手で導いた解法とまったく同じ。
+> 「実体を持たないゴーストでもスイッチは押せる」が効いている証拠になっている。

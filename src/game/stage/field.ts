@@ -1,20 +1,14 @@
-import { Container, Graphics, Ticker } from "pixi.js";
-import { app } from "../../main";
-import { ObservableValue } from "../../common/observable";
+import { Container, Ticker } from "pixi.js";
 import { Laser } from "./objects";
+import { Direction, DIRECTIONS, offsetOf } from "./direction";
+import { SwitchTile, Tile } from "./tiles";
 
-export enum TileState {
-  Used,
-  Unused
-}
-
-export enum Direction {
-  Up,
-  Down,
-  Right,
-  Left
-}
-
+/**
+ * タイルとレーザーの集合。グリッド座標 → ワールド座標の変換も担う。
+ *
+ * PixiJS の Container を継承しているが、描画コンテキストは必要としないので
+ * ヘッドレス（`bun run verify` のソルバ）でもそのまま使える。
+ */
 export class Field extends Container {
   tiles: Map<string, Tile> = new Map();
   lasers: Map<string, Laser> = new Map();
@@ -38,6 +32,9 @@ export class Field extends Container {
   };
   gap: number = 60;
 
+  /** ループ開始からの経過ターン数。1 ターン = プレイヤーが 1 歩動くこと */
+  turn: number = 0;
+
   constructor(){
     super();
   }
@@ -49,6 +46,17 @@ export class Field extends Container {
     this.lasers.forEach(l => {
       l.update(t);
     })
+  }
+
+  /**
+   * 1 ターン経過を通知する。ターン数で挙動が変わるギミックはここから駆動する
+   * （dev-docs/04-recipes.md レシピ B）。
+   */
+  nextTurn() {
+    ++this.turn;
+    this.lasers.forEach(l => {
+      l.onTurn(this.turn);
+    });
   }
 
   addTile(tile: Tile) {
@@ -64,6 +72,14 @@ export class Field extends Container {
     this.offset.x = (1280 - w + this.gap) * 0.5;
     this.offset.y = (720 - h + this.gap) * 0.5;
     this.addChild(tile.g);
+
+    // スイッチとレーザーの結線は Field が持つ。
+    // タイル側に Field への参照を持たせないことで循環参照を避けている。
+    if(tile instanceof SwitchTile) {
+      tile.pushed.addListener((p, c) => {
+        if(c) this.deactivateLasers(tile.id);
+      });
+    }
   }
 
   addLaser(laser: Laser) {
@@ -71,222 +87,53 @@ export class Field extends Container {
     this.addChild(laser.g);
   }
 
+  /** 指定 id のレーザーを恒久的に止める */
+  deactivateLasers(id: string) {
+    this.lasers.forEach(l => {
+      if(l.id === id) l.deactivate();
+    });
+  }
+
   getTile(x: number, y:number): Tile|null {
     return this.tiles.get(`${x},${y}`) ?? null;
   }
 
   getAdjacentTile(x: number, y:number, dir: Direction): Tile|null {
-    switch(dir) {
-      case Direction.Up: --y; break;
-      case Direction.Down: ++y; break;
-      case Direction.Right: ++x; break;
-      case Direction.Left: --x; break;
-    }
-    return this.getTile(x, y);
+    const d = offsetOf(dir);
+    return this.getTile(x + d.x, y + d.y);
   }
 
   hasAdjacentTile(x: number, y:number, dir: Direction): boolean {
-    switch(dir) {
-      case Direction.Up: --y; break;
-      case Direction.Down: ++y; break;
-      case Direction.Right: ++x; break;
-      case Direction.Left: --x; break;
-    }
-    return this.tiles.has(`${x},${y}`);
+    const d = offsetOf(dir);
+    return this.tiles.has(`${x + d.x},${y + d.y}`);
   }
 
+  /** 4 方向すべてが塞がっているか（＝そのループはもう詰み） */
   isJammed(x: number, y: number): boolean {
-    for(let d of [Direction.Up, Direction.Down, Direction.Left, Direction.Right]) {
+    for(const d of DIRECTIONS) {
       const t = this.getAdjacentTile(x, y, d);
-      if(t !== null && t.state.value === TileState.Unused){
-        let lx = x;
-        let ly = y;
-        switch(d) {
-          case Direction.Up: ly -= 0.5; break;
-          case Direction.Down: ly += 0.5; break;
-          case Direction.Right: lx += 0.5; break;
-          case Direction.Left: lx -= 0.5; break;
-        }
+      if(t !== null && t.canEnter()){
+        const o = offsetOf(d);
+        const lx = x + o.x * 0.5;
+        const ly = y + o.y * 0.5;
+        // TODO(L-1): 本来は `${lx},${ly}` を引くべきところを x,y で引いているため
+        // レーザーがまったく効いていない。フェーズ 3 で修正する。
+        void lx; void ly;
         const l = this.lasers.get(`${x},${y}`);
         if(l == null || (l != null && !l.active.value))return false;
-      };
+      }
     }
     return true;
   }
 
+  /** (x,y) から dir へ動くとき、その辺にアクティブなレーザーがあるか */
   existsLaser(x: number, y:number, dir: Direction): boolean {
-    switch(dir) {
-      case Direction.Up: y -= 0.5; break;
-      case Direction.Down: y += 0.5; break;
-      case Direction.Right: x += 0.5; break;
-      case Direction.Left: x -= 0.5; break;
-    }
-    const l = this.lasers.get(`${x},${y}`);
+    const d = offsetOf(dir);
+    const l = this.lasers.get(`${x + d.x * 0.5},${y + d.y * 0.5}`);
     return l != null && l.active.value;
   }
 
   gridToWorld(x: number, y: number) {
     return {x: this.offset.x + x * this.gap, y: this.offset.y + y * this.gap};
-  }
-}
-
-export class Tile {
-  state: ObservableValue<TileState>;
-  x: number;
-  y: number;
-  z: number = 3;
-  targetAlpha: number = 1;
-
-  g: Graphics;
-
-  constructor(state: TileState, x: number, y: number) {
-    this.state = new ObservableValue(state);
-    this.x = x;
-    this.y = y;
-
-    this.g = new Graphics();
-    this.initGraphics(this.g);
-
-    this.state.addListener((p, c) => {
-      if(p === TileState.Unused && c === TileState.Used) {
-        this.targetAlpha = 0.2;
-      } else if(p === TileState.Used && c === TileState.Unused) {
-        this.targetAlpha = 1;
-      }
-    });
-  }
-
-  initGraphics(g: Graphics) {
-    g.circle(this.z, this.z, 10);
-    g.stroke({
-      width: 3,
-      color: "#333333",
-      alpha: 0.2
-    });
-    g.circle(0, 0, 10);
-    g.stroke({
-      width: 3,
-      color: "#333333",
-      alpha: 0.8
-    });
-  }
-
-  key(): string {
-    return `${this.x},${this.y}`;
-  }
-
-  update(t: Ticker) {
-    this.g.alpha += (this.targetAlpha - this.g.alpha) * 0.4;
-  }
-}
-
-export class StartTile extends Tile {
-
-  initGraphics(g: Graphics): void {
-    g.roundRect(this.z-10, this.z-10, 20, 20, 4);
-    g.stroke({
-      width: 3,
-      color: "#333333",
-      alpha: 0.2
-    });
-    g.roundRect(-10, -10, 20, 20, 4);
-    g.stroke({
-      width: 3,
-      color: "#333333",
-      alpha: 0.8
-    });
-    g.poly([
-      {x: this.z-3, y:this.z+5 },
-      {x: this.z-3, y:this.z-5 },
-      {x: this.z+5.5, y:this.z }
-    ]);
-    g.fill({
-      color: "#e63333",
-      alpha: 0.2
-    });
-    g.poly([
-      {x: -3, y:5 },
-      {x: -3, y:-5 },
-      {x: 5.5, y:0 }
-    ]);
-    g.fill({
-      color: "#e63333",
-      alpha: 0.8
-    });
-  }
-}
-
-export class EndTile extends Tile {
-
-  initGraphics(g: Graphics): void {
-    g.roundRect(this.z-10, this.z-10, 20, 20, 4);
-    g.stroke({
-      width: 3,
-      color: "#333333",
-      alpha: 0.2
-    });
-    g.roundRect(-10, -10, 20, 20, 4);
-    g.stroke({
-      width: 3,
-      color: "#333333",
-      alpha: 0.8
-    });
-    g.rect(this.z-4, this.z-4, 8, 8);
-    g.fill({
-      color: "#e63333",
-      alpha: 0.2
-    });
-    g.rect(-4, -4, 8, 8);
-    g.fill({
-      color: "#e63333",
-      alpha: 0.8
-    });
-  }
-}
-
-export class SwitchTile extends Tile {
-  id: string;
-  pushed: ObservableValue<boolean>;
-  field: Field;
-  
-  constructor(state: TileState, x: number, y: number, id: string, field: Field) {
-    super(state, x, y);
-    this.pushed = new ObservableValue(false);
-    this.id = id;
-    this.field = field;
-    this.pushed.addListener((p, c) => {
-      if(c) {
-        this.initGraphics(this.g, c);
-        field.lasers.forEach(l => {
-          if(l.id === id)l.active.value = false;
-        })
-      }
-    });
-  }
-
-  initGraphics(g: Graphics, pushed: boolean = this.pushed?.value ?? false): void {
-    g.clear();
-    g.circle(this.z, this.z, 10);
-    g.stroke({
-      width: 3,
-      color: "#333333",
-      alpha: 0.2
-    });
-    g.circle(0, 0, 10);
-    g.stroke({
-      width: 3,
-      color: "#333333",
-      alpha: 0.8
-    });
-    g.circle(this.z, this.z, 5);
-    g.fill({
-      color: pushed ? "#a4b1b2" : "#5fc3c9",
-      alpha: 0.2
-    });
-    g.circle(0, 0, 5);
-    g.fill({
-      color: pushed ? "#a4b1b2" : "#5fc3c9",
-      alpha: 0.8
-    });
   }
 }

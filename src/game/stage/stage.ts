@@ -1,21 +1,23 @@
 import { Container, FillGradient, Graphics, Ticker } from "pixi.js";
 import { Scene } from "../scene";
-import { StageLogic } from "./stagelogic";
+import { StageContext, StageLogic } from "./stagelogic";
+import { StageInputSource, KeyboardInput } from "./stageinput";
 import { StageView } from "./stageview";
-import { EndTile, Field, StartTile, SwitchTile, Tile, TileState } from "./field";
+import { Field } from "./field";
+import { createTile } from "./tiles";
 import { Player } from "./player";
 import { app } from "../../main";
-import { Laser } from "./objects";
+import { createObject } from "./objects";
 import { Ghost } from "./ghost";
 import { UI } from "../ui/ui";
 import { Game } from "../game";
 import { stages } from "./stages";
-import { DEFAULT_STEPS, GridPosition, StageData } from "./stagedata";
+import { DEFAULT_STEPS, GridPosition, MAX_GHOSTS, StageData } from "./stagedata";
 import { validateAllStages } from "./validate";
 
 if(import.meta.env.DEV) validateAllStages(stages);
 
-export class Stage extends Scene {
+export class Stage extends Scene implements StageContext {
   game: Game;
 
   currentData: StageData|null = null;
@@ -23,10 +25,11 @@ export class Stage extends Scene {
 
   logic!: StageLogic;
   view!: StageView;
+  input!: StageInputSource;
 
   player!: Player;
   ghosts: Array<Ghost> = new Array();
-  maxGhosts: number = 1;
+  maxGhosts: number = MAX_GHOSTS;
 
   field!: Field;
   ui!: UI;
@@ -51,8 +54,21 @@ export class Stage extends Scene {
     }
   }
 
+  // --- StageContext ---
+
+  /** ループのやり直し。StageLogic から呼ばれる */
+  restart(keepGhost: boolean) {
+    this.reset(!keepGhost);
+  }
+
+  /** ステージクリア。StageLogic から呼ばれる */
+  clear() {
+    this.load(this.currentIndex + 1);
+  }
+
   update(t: Ticker): void {
     this.logic.update(t);
+    this.input.update(this.logic);
     this.view.update(t);
     this.ui.update(t);
     this.field.update(t);
@@ -66,6 +82,10 @@ export class Stage extends Scene {
     }
   }
 
+  /**
+   * ステージを組み立て直す。ループが終わるたびに丸ごと作り直している。
+   * @param init true ならゴーストを捨てて最初からやり直す
+   */
   reset(init: boolean = false) {
     const data = this.currentData;
     if(data === null) return;
@@ -75,6 +95,56 @@ export class Stage extends Scene {
     this.container = new Container();
     if(this.initialized)this.container.alpha = 0;
 
+    this.container.addChild(this.createBackground());
+
+    app.stage.addChild(this.container);
+
+    this.field = new Field();
+    let start: GridPosition|null = null;
+    data.tiles.forEach((s, y) => {
+      s.split("").forEach((c, x) => {
+        if(c === 'S') {
+          start = {
+            x: x,
+            y: y
+          }
+        }
+        const tile = createTile(c, x, y);
+        if(tile !== null)this.field.addTile(tile);
+      });
+    });
+    if(start === null) {
+      // validateStage が警告済み。ここで落とさず (0,0) から始めて、遊べる形は保つ
+      console.error(`[LoopCut] ステージ ${this.currentIndex + 1} に 'S' がありません。(0,0) から開始します`);
+      start = { x: 0, y: 0 };
+    }
+
+    (data.objects ?? []).forEach(v => {
+      const object = createObject(v);
+      if(object !== null) this.field.addLaser(object);
+    });
+
+    this.container.addChild(this.field);
+
+    if(init) {
+      this.ghosts = [];
+    } else {
+      if(this.ghosts.length === this.maxGhosts)this.ghosts.shift();
+      this.ghosts.push(new Ghost(this.player, this.logic.remainSteps));
+    }
+
+    this.player = new Player(start, this.field.gap);
+
+    this.logic = new StageLogic(this);
+    this.input = new KeyboardInput();
+
+    this.view = new StageView(this);
+    this.ui = new UI(this);
+    this.container.addChild(this.view);
+    this.container.addChild(this.ui);
+  }
+
+  private createBackground(): Graphics {
     const g = new Graphics();
     const gradient = new FillGradient({
       start: {
@@ -90,69 +160,6 @@ export class Stage extends Scene {
     gradient.addColorStop(1, "#e0e0e0");
     g.rect(0, 0, 1280, 720);
     g.fill(gradient);
-    this.container.addChild(g);
-
-    app.stage.addChild(this.container);
-
-    this.field = new Field();
-    let start: GridPosition|null = null;
-    data.tiles.forEach((s, y) => {
-      s.split("").forEach((c, x) => {
-        if(c === 'S') {
-          start = {
-            x: x,
-            y: y
-          }
-        }
-        const tile = this.getTile(c, x, y);
-        if(tile !== null)this.field.addTile(tile);
-      });
-    });
-    if(start === null) {
-      // validateStage が警告済み。ここで落とさず (0,0) から始めて、遊べる形は保つ
-      console.error(`[LoopCut] ステージ ${this.currentIndex + 1} に 'S' がありません。(0,0) から開始します`);
-      start = { x: 0, y: 0 };
-    }
-
-    (data.objects ?? []).forEach(v => {
-      switch(v.type) {
-        case "laser":
-          this.field.addLaser(new Laser(v.position.x, v.position.y, v.id));
-          break;
-        default: break;
-      }
-    });
-
-    this.container.addChild(this.field);
-
-    if(init) {
-      this.ghosts = [];
-    } else {
-      if(this.ghosts.length === this.maxGhosts)this.ghosts.shift();
-      this.ghosts.push(new Ghost(this.player, this.logic.remainSteps));
-    }
-
-    this.player = new Player(start, this.field.gap);
-
-    this.logic = new StageLogic(this);
-
-    this.view = new StageView(this);
-    this.ui = new UI(this);
-    this.container.addChild(this.view);
-    this.container.addChild(this.ui);
-  }
-
-  private getTile(c: string, x: number, y: number): Tile|null {
-    switch(c){
-      case 'S': return new StartTile(TileState.Unused, x, y);
-      case 'G': return new EndTile(TileState.Unused, x, y);
-      case '#': return new Tile(TileState.Unused, x, y);
-      case '@': return new Tile(TileState.Used, x, y);
-      default: break;
-    }
-    if(/[a-z]/.test(c)) {
-      return new SwitchTile(TileState.Unused, x, y, c, this.field);
-    }
-    return null;
+    return g;
   }
 }

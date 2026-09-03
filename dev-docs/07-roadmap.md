@@ -93,75 +93,72 @@ flowchart LR
 
 ---
 
-## フェーズ 2 — ロジックの分離（2〜3 日 / リスク中）
+## フェーズ 2 — ロジックの分離 ✅ 完了
 
-**目的**: **ギミックを追加できる状態を作る。** タイルとオブジェクトの振る舞いを多態にする。
+**目的**: **ギミックを追加できる状態を作る。** そして**ルールを描画と入力から切り離す**。
 
-- [ ] `Tile` に `canEnter()` / `enter()` を導入し、`state.value` の直接操作を 5 箇所から排除
-      （[04-recipes.md レシピ A-1](04-recipes.md#a-1-まず基底-tile-に判定メソッドを生やす初回だけ)）
-- [ ] `field.ts` (316 行) を分割する
+- [x] `Tile` に `canEnter()` / `onEnter(solid)` / `isGoal` を導入し、`state.value` の直接操作を排除
+- [x] `field.ts` (292 行) を分割
+  - [direction.ts](../src/game/stage/direction.ts) … `Direction` と方向計算
+  - [tiles.ts](../src/game/stage/tiles.ts) … `Tile` 系 + `tileRegistry`
+  - [field.ts](../src/game/stage/field.ts) … `Field` のみ（139 行）
+- [x] 文字 → タイルを `tileRegistry` / `createTile()` に移した（**追加は 1 行**）
+- [x] オブジェクトも `objectRegistry` / `createObject()` にして `Stage.reset()` の `switch` を削除
+- [x] `Entity` に `target` / `size` / `move()` / `update()` / `bump()` を集約（Z-10 解消）
+- [x] `grid` / `start` のオブジェクト共有を解消。`start` は誰も読まないので削除（E-1 / Z-7 解消）
+- [x] `next()` のゴール判定に `e instanceof Player` を追加（X-1 解消）
+- [x] ゴーストの移動先が無い場合のガードを追加（X-2 解消）
+- [x] `Field.nextTurn()` と `Laser.onTurn()` を追加（ターン駆動ギミックの拡張点）
+- [x] **`StageLogic` から PixiJS と入力への依存を除去**
+  - `Stage` への直接参照をやめ、`StageContext` インターフェース経由に
+  - キー入力を [`KeyboardInput`](../src/game/stage/stageinput.ts) に分離
+  - `tryMove(dir)` / `requestReset()` という明示的な API に
 
-```
-src/game/stage/
-  field.ts          … Field クラスのみ
-  tiles/
-    tile.ts         … Tile 基底 + TileState
-    start.ts        … StartTile
-    end.ts          … EndTile
-    switch.ts       … SwitchTile
-    index.ts        … 文字 → クラスのレジストリ
-  objects/
-    object.ts       … StageObject 基底
-    laser.ts        … Laser
-```
+**判断メモ**:
 
-- [ ] 文字 → タイルの対応を `stage.ts` の `switch` からレジストリへ移す
+- **`SwitchTile` から `Field` への参照を切った。** スイッチ→レーザーの結線は `Field.addTile()` が行う。
+  これで `tiles.ts` と `field.ts` の循環参照が無くなり、レジストリが純粋な関数で書けるようになった。
+- **`Stage` の 3 分割（Loader / Builder / Stage）は見送った。**
+  `StageContext` の導入でルールが独立したことで当初の目的は達成でき、
+  残った `Stage` は 165 行で「データからシーングラフを組む」だけになったため。
+  さらに膨らんだら分割する。
+- **タイルの見た目（`Graphics`）はタイルクラスに残した。**
+  モデルとビューを完全に分けると、タイル 1 種類ごとに 2 クラス書くことになり、
+  「レジストリに 1 行」という目標と逆行する。PixiJS の `Graphics` は
+  描画コンテキスト無しでも構築できるので、分けなくてもヘッドレスで動く。
 
-```ts
-// tiles/index.ts
-export const tileRegistry: Record<string, (x: number, y: number) => Tile> = {
-  'S': (x, y) => new StartTile(TileState.Unused, x, y),
-  'G': (x, y) => new EndTile(TileState.Unused, x, y),
-  '#': (x, y) => new Tile(TileState.Unused, x, y),
-  '@': (x, y) => new Tile(TileState.Used, x, y),
-};
-```
-
-  → **以降、新しいタイルの追加はこの表に 1 行足すだけになる。**
-- [ ] オブジェクトも同様に `objectRegistry` にして `Stage.reset()` の `switch` を消す
-- [ ] `Entity` に `target` / `gap` / `size` / `move()` / `update()` を集約し、
-      `Player` と `Ghost` の重複を解消（[Z-10](06-known-issues.md)）
-- [ ] `grid` / `start` のオブジェクト共有を解消（[E-1](06-known-issues.md)）
-- [ ] `next()` のゴール判定に `e instanceof Player` を足す（[X-1](06-known-issues.md)）
-- [ ] ゴーストの移動先を検証してから `next()` に渡す（[X-2](06-known-issues.md)）
-- [ ] `Field.nextTurn()` を追加し、`StageLogic.loop()` から呼ぶ
-      （[04-recipes.md レシピ B-2](04-recipes.md#b-2-ターン経過フックを用意する初回だけ)）
-- [ ] `Stage` (150 行) の責務を分ける
-  - `StageLoader` … `StageData` の解決と検証
-  - `StageBuilder` … `StageData` → `Field` / `Player` / `Ghost` の構築
-  - `Stage` … シーンとしての振る舞いとループ管理のみ
-
-**完了条件**: 新しいタイル 1 種類を、`tiles/` にファイルを 1 つ足して
-レジストリに 1 行書くだけで追加できる。全 7 ステージが従来どおり解ける。
+**完了条件**: 新しいタイルは `tiles.ts` にクラスを 1 つ + レジストリに 1 行で追加できる ✅ /
+`tsc --noEmit` ✅ / `vite build` ✅ / 全 7 ステージが解ける ✅（フェーズ 2.5 で自動検証）
 
 ---
 
-## フェーズ 2.5 — ヘッドレスソルバと検証（リスク小 / 効果最大）
+## フェーズ 2.5 — ヘッドレスソルバと検証 ✅ 完了
 
 **目的**: **ステージが解けるかを自動で検証できるようにする。**
-以降のバグ修正・リファクタ・ステージ量産すべての安全網になる。
 
-- [ ] `StageData` を入力に、描画抜きでルールだけをシミュレートする層を作る
-  - フェーズ 2 でルールが `Graphics` から切り離されていれば、**ゲーム本体と同じコードを再利用できる**
-  - ルールを二重実装すると必ず食い違うので、**絶対にコピーして書かない**
-- [ ] 全ループを探索して「解が存在するか」「何ループで解けるか」を返すソルバを書く
-- [ ] `bun run verify` で全ステージを検証するスクリプトを用意する
-- [ ] 既存 7 ステージが全部「解あり」になることを確認し、**期待ループ数を固定値として記録する**
+- [x] [solver.ts](../src/game/stage/solver.ts) の `Sim` が `StageContext` を実装
+  - **ルールを一切再実装していない。** ゲーム本体と同じ `StageLogic` / `Field` / `Tile` / `Ghost` を動かす
+  - 演出時間は `deltaTime: 100` の擬似 `Ticker` で飛ばす
+- [x] ループ数について反復深化する DFS ソルバ（状態の指紋で重複除去、探索予算つき）
+- [x] `bun run verify` がデータ検証 + 解の存在確認を行う
+- [x] 既存 7 ステージの**最小ループ数を `EXPECTED_LOOPS` に固定**（回帰検出用）
 
-**完了条件**: `bun run verify` が全ステージ緑。
-以降、ルールを変えたらこのコマンドが即座に回帰を教えてくれる。
+**結果**（全 7 ステージ、約 1 秒）:
 
-> **AI にステージを量産させる場合、このコマンドが受け入れ基準になる。**
+| # | 最小ループ数 | 手順 |
+|---|---:|---|
+| 1 | 1 | `DDDD` |
+| 2 | 2 | `AAAADDDD` |
+| 3 | 2 | `DDDWADS` |
+| 4 | 2 | `SDWDSAA` |
+| 5 | 2 | `DSSDWDSDDDDDDDDDD` |
+| 6 | 2 | `DSSDDWWADSSDSS` |
+| 7 | 4 | `DWWDDDDSSADSSSDDWDWWDDDDSSADDD` |
+
+> ステージ 2 の `AAAADDDD` は [02-game-rules.md](02-game-rules.md) で手で導いた解法と一致した。
+> リファクタでルールが壊れていないことの裏付けになっている。
+
+**完了条件**: `bun run verify` が全ステージ緑 ✅
 
 ---
 

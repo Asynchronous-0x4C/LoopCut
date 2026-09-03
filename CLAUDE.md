@@ -11,6 +11,8 @@ LoopCut は PixiJS v8 + TypeScript + Vite で作られたグリッドベース�
 - 論理解像度は固定 1280x720。CSS/JS でウィンドウにフィットさせる（[src/main.ts:17-23](src/main.ts#L17-L23)）。
 - 描画はすべて PixiJS の `Graphics` によるベクター描画。画像アセットは使わない（ロゴの SVG のみ例外）。
 - Tauri v2 のデスクトップ殻が同梱されているが、本番配信は GitHub Pages（Web）。
+- **ルール（`StageLogic` / `Field` / `Tile` / `Entity`）は描画と入力から独立している。**
+  そのおかげで `bun run verify` が同じコードをヘッドレスで動かし、全ステージが解けるか検証できる。
 
 ## ディレクトリの約束
 
@@ -59,7 +61,10 @@ bun run tauri dev    # デスクトップ版
 - クラスベース。`update(t: Ticker)` を持つオブジェクトをツリー状に呼び出す。
 - 補間は `v += (target - v) * 係数` の一次遅れで統一（イージング関数は使わない）。
 - 色は文字列リテラル（`"#646464"` など）。パレットは [dev-docs/05-visual-style.md](dev-docs/05-visual-style.md) を参照。
-- `any` は既存コードに残っているが、**新規コードでは使わない**。特にステージデータは型を付ける。
+- `any` は使わない。ステージデータは `StageData` 型（[stagedata.ts](src/game/stage/stagedata.ts)）。
+- **ルールに関わるファイルで `app`（レンダラ）や `key`（入力）を import しない。**
+  対象: `field.ts` / `tiles.ts` / `objects.ts` / `entity.ts` / `player.ts` / `ghost.ts` / `stagelogic.ts`。
+  これを破ると `bun run verify` が動かなくなる。描画は `StageView`/`UI`、入力は `KeyboardInput` へ。
 
 ## 変更時の必須確認
 
