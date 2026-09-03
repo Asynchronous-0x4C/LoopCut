@@ -39,7 +39,7 @@ export class Stage extends Scene {
 
   load(stage: number) {
     this.currentIndex = stage;
-    this.currentData = stages[stage];console.log(this.currentData)
+    this.currentData = stages[stage];
     if(this.currentData != null) {
       this.initialized = true;
       this.reset(true);

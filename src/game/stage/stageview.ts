@@ -10,25 +10,30 @@ export class StageView extends Container {
     super();
     this.stage = stage;
 
-    stage.player.x = stage.player.target.x = stage.field.offset.x + stage.player.grid.x * stage.field.gap;
-    stage.player.y = stage.player.target.y = stage.field.offset.y + stage.player.grid.y * stage.field.gap;
+    const f = this.stage.field;
+
+    const pw = f.gridToWorld(stage.player.grid.x, stage.player.grid.y);
+    stage.player.x = stage.player.target.x = pw.x;
+    stage.player.y = stage.player.target.y = pw.y;
     this.addChild(stage.player);
 
     stage.ghosts.forEach(g => {
-      g.x = g.target.x = stage.field.offset.x + g.grid.x * stage.field.gap;
-      g.y = g.target.y = stage.field.offset.y + g.grid.y * stage.field.gap;
+      const w = f.gridToWorld(g.grid.x, g.grid.y);
+      g.x = g.target.x = w.x;
+      g.y = g.target.y = w.y;
     });
     if(stage.ghosts.length > 0)this.addChild(...stage.ghosts);
 
-    const f = this.stage.field;
     if(f.tiles.size > 0) {
       f.tiles.forEach(t => {
-        t.g.x = f.offset.x + t.x * f.gap;
-        t.g.y = f.offset.y + t.y * f.gap;
+        const w = f.gridToWorld(t.x, t.y);
+        t.g.x = w.x;
+        t.g.y = w.y;
       });
       f.lasers.forEach(l => {
-        l.g.x = f.offset.x + l.x * f.gap;
-        l.g.y = f.offset.y + l.y * f.gap;
+        const w = f.gridToWorld(l.x, l.y);
+        l.g.x = w.x;
+        l.g.y = w.y;
       });
     }
   }

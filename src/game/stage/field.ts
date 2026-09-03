@@ -1,4 +1,4 @@
-import { Container, Graphics, Particle, ParticleContainer, ParticleOptions, Texture, TextureSource, Ticker } from "pixi.js";
+import { Container, Graphics, Ticker } from "pixi.js";
 import { app } from "../../main";
 import { ObservableValue } from "../../common/observable";
 import { Laser } from "./objects";
@@ -64,18 +64,6 @@ export class Field extends Container {
     this.offset.x = (1280 - w + this.gap) * 0.5;
     this.offset.y = (720 - h + this.gap) * 0.5;
     this.addChild(tile.g);
-    if(this.tiles.has(`${tile.x-1},${tile.y}`)) {
-      
-    }
-    if(this.tiles.has(`${tile.x+1},${tile.y}`)) {
-      
-    }
-    if(this.tiles.has(`${tile.x},${tile.y-1}`)) {
-      
-    }
-    if(this.tiles.has(`${tile.x},${tile.y+1}`)) {
-      
-    }
   }
 
   addLaser(laser: Laser) {
@@ -301,17 +289,4 @@ export class SwitchTile extends Tile {
       alpha: 0.8
     });
   }
-}
-
-export class Node extends Particle {
- from: {x: number, y: number};
- to: {x: number, y: number};
-
-  constructor(from: {x: number, y: number}, to: {x: number, y: number}, options: Texture<TextureSource<any>> | ParticleOptions){
-    super(options);
-    this.from = from;
-    this.to = to;
-  }
-
-
 }

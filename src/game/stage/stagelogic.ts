@@ -69,10 +69,15 @@ export class StageLogic {
   }
 
   loop() {
-    let input = false;
+    // リセットは移動キーより先に、独立して判定する（移動キーを押しながらでも効くように）
+    if(key.keys.has('r')) {
+      this.state = LogicState.Next;
+      this.time = 70;
+      this.selfReset = true;
+      return;
+    }
     for(let k of key.keys) {
       if(k === 'w' || k === 'a' || k === 's' || k === 'd') {
-        input = true;
         if(!this.inputAvailable) break;
         let p = this.stage.player.grid;
         let dir;
@@ -99,9 +104,6 @@ export class StageLogic {
           }
         }
         break;
-      } else if(k === 'r') {
-        this.state = LogicState.Next;
-        this.selfReset = true;
       }
     }
     if(!key.pressed) {

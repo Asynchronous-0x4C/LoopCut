@@ -50,8 +50,8 @@ export class Laser {
     });
   }
 
+  /** 毎フレーム呼ばれる拡張フック（04-recipes.md レシピ B）。既定では何もしない。 */
   update(t: Ticker) {
-    
   }
 
   key(): string {
