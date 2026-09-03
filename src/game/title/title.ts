@@ -1,11 +1,10 @@
 import { Graphics, Text, Ticker } from "pixi.js";
 import { Scene } from "../scene";
-import { Game } from "../game";
+import type { Game } from "../game";
 import { key } from "../../main";
 import { bodyTextStyle } from "../../common/text";
 import { damp } from "../../common/interpolate";// @ts-ignore
 import loopcut from "../../assets/loopcut.svg?raw";
-import { Stage } from "../stage/stage";
 
 export class Title extends Scene {
   game: Game;
@@ -55,11 +54,7 @@ export class Title extends Scene {
       this.logo.alpha = Math.ceil(Math.sin(x * Math.PI * 0.5)) * Math.ceil(x / 3) * 0.8;
     }
     if(this.time <= 0) {
-      this.game.setScene("game");
-      const s = this.game.getScene();
-      if(s instanceof Stage) {
-        s.load(0);
-      }
+      this.game.openSelect();
     }
   }
 }

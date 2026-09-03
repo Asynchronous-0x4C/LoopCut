@@ -226,13 +226,17 @@ export const OBJECT_TYPES = ["laser", "pulse"] as const;            // ← 追�
 
 例: **ステージセレクト画面**。
 
-### C-1. 現状の制約を理解する
+### C-1. 現状の決まりを理解する
 
 - `Game` のコンストラクタで**全シーンが即座にインスタンス化される**（[game.ts](../src/game/game.ts)）。
   重い初期化をコンストラクタに書くと起動が遅くなる。
-- `Scene` に**入退場フックが無い**（[scene.ts](../src/game/scene.ts)）。
-  再入場したときに状態が残る（`Fin` の `time` が `null` に戻らないのがその例）。
-  → **再入場を想定するシーンは、自前の `enter()` を作って `setScene` の後に呼ぶ。**
+- `Scene` には `enter()` / `exit()` がある（[scene.ts](../src/game/scene.ts)）。
+  **再入場時の初期化はコンストラクタではなく `enter()` に書く。**
+  `Select` は `enter()` でマップを組み立て直し、`Fin` は `enter()` でテキストを作り直している。
+- **シーン同士は互いを import しない。** 遷移は `Game` のメソッドが仲介する
+  （`openSelect()` / `playStage()` / `returnToSelect()`）。
+  引数を渡したいときは、`setScene()` の前に対象シーンの `prepare◯◯()` を呼んでおく。
+- 実例として [Select](../src/game/select/select.ts) を読むのが早い。
 
 ### C-2. シーンを書く
 
@@ -242,8 +246,6 @@ import { Container, Ticker } from "pixi.js";
 import { Scene } from "../scene";
 import { Game } from "../game";
 import { key } from "../../main";
-import { Stage } from "../stage/stage";
-
 export class Select extends Scene {
   game: Game;
   index: number = 0;
@@ -256,10 +258,10 @@ export class Select extends Scene {
     // 表示物の生成…（描画規約は 05-visual-style.md）
   }
 
-  enter(count: number) {
+  enter(): void {
     this.index = 0;
     this.inputAvailable = false;
-    // 選択肢を作り直す
+    // 表示物を作り直す
   }
 
   update(t: Ticker): void {
@@ -269,9 +271,8 @@ export class Select extends Scene {
     if (key.keys.has("d")) { this.index++; this.inputAvailable = false; }
     if (key.keys.has("a")) { this.index--; this.inputAvailable = false; }
     if (key.keys.has("Enter")) {
-      this.game.setScene("game");
-      const s = this.game.getScene();
-      if (s instanceof Stage) s.load(this.index);
+      // 遷移は Game 経由。シーンから他のシーンを import しない
+      this.game.playStage(this.index, "1-1");
     }
   }
 }
@@ -326,16 +327,20 @@ const t = new Text({ text: "…", style: bodyTextStyle, x: 5, y: 30 });
 
 ---
 
-## レシピ E: 進捗を保存する
+## レシピ E: 進捗に何かを記録する
 
-README にある「ブラウザをリロードすると進捗がリセットされる」を直す場合。
+**実装済み。** [src/common/progress.ts](../src/common/progress.ts) が `localStorage` を扱う。
 
-- 保存先は `localStorage`（Tauri でも Web でも動く）。
-- 書き込みポイント: [stage.ts](../src/game/stage/stage.ts) の `clear()`。
+```ts
+import { isCleared, markCleared, clearedCount } from "../../common/progress";
+```
+
+- 記録するタイミングは [stage.ts](../src/game/stage/stage.ts) の `clear()`。
   **`StageLogic` には書かないこと**（§0.6。ソルバが動かなくなる）。
-- 読み込みポイント: [title.ts](../src/game/title/title.ts) の `s.load(0)`。
-- `Stage.load()` は範囲外の index で `fin` シーンへ飛ぶので保存値が壊れていても
-  致命傷にはならないが、`Number.isInteger` の検証は入れること。
+- 保存する項目を増やすときは `Progress` に足し、`loadProgress()` の検証も足す。
+  **壊れた値が入っていてもゲームが起動しなくなってはいけない。**
+- 選択画面のイベント演出も、再生済みかどうかをここに記録している
+  （[08-select-format.md](08-select-format.md)）。
 
 ---
 

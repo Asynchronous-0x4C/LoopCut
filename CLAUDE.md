@@ -9,6 +9,8 @@ LoopCut は PixiJS v8 + TypeScript + Vite で作られたグリッドベース�
 15 時間のゲームジャムで制作した初版（`main` ブランチ）を、`plus` ブランチでブラッシュアップ中。
 
 - 論理解像度は固定 1280x720。CSS/JS でウィンドウにフィットさせる（[src/main.ts:17-23](src/main.ts#L17-L23)）。
+- 画面は タイトル → 選択画面（歩き回るワールドマップ）→ ステージ → 選択画面 の順に回る。
+  **シーン同士は互いを import せず、遷移は [Game](src/game/game.ts) が仲介する。**
 - 描画はすべて PixiJS の `Graphics` によるベクター描画。画像アセットは使わない（ロゴの SVG のみ例外）。
 - Tauri v2 のデスクトップ殻が同梱されているが、本番配信は GitHub Pages（Web）。
 - **ルール（`StageLogic` / `Field` / `Tile` / `Entity`）は描画と入力から独立している。**
@@ -20,6 +22,7 @@ LoopCut は PixiJS v8 + TypeScript + Vite で作られたグリッドベース�
 |---|---|---|
 | `src/` | ゲーム本体のソース | **する** |
 | `src/game/stage/stages/*.json` | ステージ定義データ | **する** |
+| `src/game/select/maps/*.json` | ステージ選択画面（ワールドマップ）のデータ | **する** |
 | `scripts/` | 検証スクリプト（`bun run verify`） | **する** |
 | `dev-docs/` | 開発者・AI 向けドキュメント | **する** |
 | `docs/` | **Vite のビルド出力**（GitHub Pages の配信元） | **絶対にしない** |
@@ -34,7 +37,7 @@ LoopCut は PixiJS v8 + TypeScript + Vite で作られたグリッドベース�
 ```bash
 bun install          # 依存導入（npm/pnpm でも可）
 bun run dev          # 開発サーバ http://localhost:1420
-bun run verify       # 全ステージのデータ検証（ステージを触ったら必ず実行）
+bun run verify       # ステージと選択マップの検証（データを触ったら必ず実行）
 ./node_modules/.bin/tsc --noEmit   # 型チェックのみ（変更後は必ず通すこと）
 bun run build        # tsc + vite build → docs/ を更新（配信物を更新する時だけ）
 bun run tauri dev    # デスクトップ版
@@ -50,6 +53,7 @@ bun run tauri dev    # デスクトップ版
 | 全体像・どのファイルが何をしているか | [dev-docs/01-architecture.md](dev-docs/01-architecture.md) |
 | ゲームルールの正確な仕様（ゴースト・レーザー等） | [dev-docs/02-game-rules.md](dev-docs/02-game-rules.md) |
 | **ステージを追加する** | [dev-docs/03-stage-format.md](dev-docs/03-stage-format.md) |
+| **選択画面・ワールドマップを触る** | [dev-docs/08-select-format.md](dev-docs/08-select-format.md) |
 | **新しいギミック / タイル / シーンを追加する** | [dev-docs/04-recipes.md](dev-docs/04-recipes.md) |
 | 見た目を既存に合わせる（色・影・アニメ） | [dev-docs/05-visual-style.md](dev-docs/05-visual-style.md) |
 | 既知のバグ・触ると危ない箇所 | [dev-docs/06-known-issues.md](dev-docs/06-known-issues.md) |
@@ -71,5 +75,6 @@ bun run tauri dev    # デスクトップ版
 1. `tsc --noEmit` が通る。
 2. `bun run verify` が通る。
 3. `docs/` を編集していない。
-4. ステージを追加した場合、[stages/index.ts](src/game/stage/stages/index.ts) の配列にも追加した。
+4. ステージを追加した場合、[stages/index.ts](src/game/stage/stages/index.ts) の配列と、
+   どこかの選択マップの `exits` にも追加した（どこからも入れないステージは verify が落とす）。
 5. ルール・データ形式を変えた場合、`dev-docs/` の該当箇所も同じコミットで更新する。

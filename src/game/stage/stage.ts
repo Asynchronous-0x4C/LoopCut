@@ -10,10 +10,11 @@ import { app } from "../../main";
 import { createObject } from "./objects";
 import { Ghost } from "./ghost";
 import { UI } from "../ui/ui";
-import { Game } from "../game";
+import type { Game } from "../game";
 import { stages } from "./stages";
 import { DEFAULT_STEPS, GridPosition, MAX_GHOSTS, StageData } from "./stagedata";
 import { validateAllStages } from "./validate";
+import { markCleared } from "../../common/progress";
 
 if(import.meta.env.DEV) validateAllStages(stages);
 
@@ -22,6 +23,8 @@ export class Stage extends Scene implements StageContext {
 
   currentData: StageData|null = null;
   currentIndex: number = 0;
+  /** 選択画面から渡される表示用ラベル（"1-1" など） */
+  currentLabel: string = "";
 
   logic!: StageLogic;
   view!: StageView;
@@ -43,14 +46,16 @@ export class Stage extends Scene implements StageContext {
     this.game = game;
   }
 
-  load(stage: number) {
+  load(stage: number, label: string = "") {
     this.currentIndex = stage;
+    this.currentLabel = label;
     this.currentData = stages[stage] ?? null;
     if(this.currentData != null) {
       this.initialized = true;
       this.reset(true);
     } else {
-      this.game.setScene("fin");
+      console.error(`[LoopCut] ステージ ${stage} は存在しません`);
+      this.game.openSelect();
     }
   }
 
@@ -63,7 +68,8 @@ export class Stage extends Scene implements StageContext {
 
   /** ステージクリア。StageLogic から呼ばれる */
   clear() {
-    this.load(this.currentIndex + 1);
+    if(this.currentLabel !== "") markCleared(this.currentLabel);
+    this.game.returnToSelect(this.currentLabel);
   }
 
   update(t: Ticker): void {

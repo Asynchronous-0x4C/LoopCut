@@ -252,7 +252,7 @@ laser a: x=7.5, y=0  … タイル(7,0) と (8,0) の間 ＝ ゴールの直前
 | 7 | 4 | `DWWDDDDDDSSSDDWDWWDDDDSSADDD` |
 
 **回帰検出の対象は「最小ループ数」だけ**で、手順の文字列は探索順に依存するので契約ではない。
-期待値は [scripts/verify-stages.ts](../scripts/verify-stages.ts) の `EXPECTED_LOOPS` に固定してあり、
+期待値は [scripts/verify.ts](../scripts/verify.ts) の `EXPECTED_LOOPS` に固定してあり、
 ずれると `bun run verify` が落ちる。意図した変更なら期待値とこの表を更新すること。
 
 > ステージ 2 の `AAAADDDD` は §9 で手で導いた解法とまったく同じ。

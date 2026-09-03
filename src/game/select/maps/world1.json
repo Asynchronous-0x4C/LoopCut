@@ -1,0 +1,30 @@
+{
+  "world": 1,
+  "tiles": [
+    " 1 2 3 4 5 6 7 ",
+    "S&#&#&#&#&#&#&#"
+  ],
+  "exits": [
+    { "mark": "1", "stage": 0 },
+    { "mark": "2", "stage": 1 },
+    { "mark": "3", "stage": 2 },
+    { "mark": "4", "stage": 3 },
+    { "mark": "5", "stage": 4 },
+    { "mark": "6", "stage": 5 },
+    { "mark": "7", "stage": 6 }
+  ],
+  "objects": [
+    {
+      "type": "laser",
+      "id": "g",
+      "position": { "x": 6.5, "y": 1 }
+    }
+  ],
+  "events": [
+    {
+      "id": "world1-gate",
+      "when": { "clearedCount": 3 },
+      "action": { "type": "openLaser", "id": "g" }
+    }
+  ]
+}

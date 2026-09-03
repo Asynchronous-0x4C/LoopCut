@@ -1,14 +1,18 @@
 # 01. アーキテクチャ
 
-> 記述時点: `plus` ブランチ フェーズ 2.5 完了時点。ソース合計 約 1,800 行。
+> 記述時点: `plus` ブランチ フェーズ 4（選択画面）実装時点。ソース合計 約 2,900 行。
 
 ## 1. 全体像
 
 ```
 index.html
   └ src/main.ts          … PixiJS Application の生成、入力収集、リサイズ、ticker 起動
-      └ Game             … シーンの保持と切り替え（title / game / fin）
+      └ Game             … シーンの保持・切り替え・遷移の仲介（title / select / game / fin）
           ├ Title        … タイトル画面
+          ├ Select       … ステージ選択画面（歩き回るワールドマップ）
+          │   ├ Field    … ステージと同じ Field。タイルは消費されない
+          │   ├ Player   … ステージと同じ自機
+          │   └ SelectView … カメラ、ステージ番号ラベル、矢印
           ├ Stage        … ゲーム本体（シーン）。StageContext を実装する
           │   ├ Field    … タイルとレーザーの集合（Container）
           │   ├ Player   … 操作キャラ（Entity）
@@ -19,10 +23,25 @@ index.html
           │   └ UI           … 残歩数ドット、操作説明
           └ Fin          … クリア後の画面
 
-scripts/verify-stages.ts （bun run verify）
-  └ Sim                  … StageContext を実装したヘッドレス版
-      └ StageLogic       … ↑ とまったく同じインスタンス
+scripts/verify.ts （bun run verify）
+  ├ Sim                  … StageContext を実装したヘッドレス版
+  │   └ StageLogic       … ↑ とまったく同じインスタンス
+  └ analyzeSelectMap     … 選択マップが地形ロックで詰まないかを検査
 ```
+
+### シーン遷移
+
+```mermaid
+flowchart LR
+  T[Title] --> S[Select]
+  S -->|矢印の向きへ移動| G[Stage]
+  G -->|クリア| S
+  G -.->|全ステージ制覇| F[Fin]
+```
+
+遷移は `Game.openSelect()` / `Game.playStage()` / `Game.returnToSelect()` が仲介する。
+**シーン同士は互いを import しない**（`Stage` と `Select` の循環参照を避けるため）。
+`Scene` には `enter()` / `exit()` があり、再入場する画面の初期化はコンストラクタではなくそこに書く。
 
 ### ルールと描画の分離
 
@@ -46,8 +65,10 @@ scripts/verify-stages.ts （bun run verify）
 | [src/main.ts](../src/main.ts) | 70 | Pixi 初期化、`app` / `mouse` / `key` / `startTime` のグローバル公開、リサイズ | グローバル可変状態が 4 つある |
 | [src/common/observable.ts](../src/common/observable.ts) | 24 | `ObservableValue<T>`。値変更時にリスナを呼ぶ | 変更**前**に通知する点に注意（§5） |
 | [src/common/text.ts](../src/common/text.ts) | 21 | 本文テキストの共通スタイル `bodyTextStyle` | |
-| [src/game/game.ts](../src/game/game.ts) | 33 | シーンの Map と切り替え | シーンは起動時に全部インスタンス化される |
-| [src/game/scene.ts](../src/game/scene.ts) | 8 | `Scene` 抽象クラス（`container` + `update`） | 入退場フックが無い（C-1） |
+| [src/common/interpolate.ts](../src/common/interpolate.ts) | 14 | `damp()`。フレームレート非依存の一次遅れ補間 | 補間は必ずこれを通す |
+| [src/common/progress.ts](../src/common/progress.ts) | 87 | クリア記録とイベント再生記録の localStorage 保存 | 壊れた値でも落ちない |
+| [src/game/game.ts](../src/game/game.ts) | 73 | シーンの保持・切り替え・**遷移の仲介** | シーンは起動時に全部インスタンス化される |
+| [src/game/scene.ts](../src/game/scene.ts) | 19 | `Scene` 抽象クラス（`container` / `update` / `enter` / `exit`） | 再入場時の初期化は `enter()` に書く |
 | [src/game/title/title.ts](../src/game/title/title.ts) | 63 | タイトル画面、ロゴ SVG 表示、キー入力でステージ 0 へ | 遷移先がハードコード |
 | [src/game/fin/fin.ts](../src/game/fin/fin.ts) | 31 | クリア画面、プレイ時間表示 | Text を `update` 内で遅延生成 |
 | [src/game/ui/ui.ts](../src/game/ui/ui.ts) | 63 | 残歩数ドット（ParticleContainer）、操作説明 | `Stage` を直接参照 |
@@ -64,12 +85,22 @@ scripts/verify-stages.ts （bun run verify）
 | [src/game/stage/stagedata.ts](../src/game/stage/stagedata.ts) | 55 | ステージ JSON の型と定数 | `StageData` / `DEFAULT_STEPS` / `MAX_GHOSTS` ほか |
 | [src/game/stage/stages/index.ts](../src/game/stage/stages/index.ts) | 27 | **プレイ順のステージ配列**。ここの並びが順序の正 | |
 | [src/game/stage/validate.ts](../src/game/stage/validate.ts) | 119 | ステージデータの検証 | dev サーバ起動時と `bun run verify` |
+| **選択画面** | | | |
+| [src/game/select/select.ts](../src/game/select/select.ts) | 323 | 選択画面シーン。組み立て・移動・イベント演出 | 書式は [08](08-select-format.md) |
+| [src/game/select/selectdata.ts](../src/game/select/selectdata.ts) | 86 | 選択マップの型と `exitLabel()` | |
+| [src/game/select/selectmap.ts](../src/game/select/selectmap.ts) | 108 | **マップの読み方（純粋関数）**。入口・開始位置・条件判定 | シーンと検証が共有する |
+| [src/game/select/selecttiles.ts](../src/game/select/selecttiles.ts) | 133 | `FreeTile` / `BlockedTile` / `StageTile` / `ExitArrow` + レジストリ | 踏んでも `Used` にならない |
+| [src/game/select/selectview.ts](../src/game/select/selectview.ts) | 126 | カメラ、ステージ番号ラベル、入退場アニメ | |
+| [src/game/select/validate.ts](../src/game/select/validate.ts) | 168 | 選択マップの検証 | |
+| [src/game/select/reachability.ts](../src/game/select/reachability.ts) | 90 | **地形ロックで詰まないかの解析** | ゲーム本体と同じ Field を使う |
+| [src/game/select/maps/index.ts](../src/game/select/maps/index.ts) | 12 | ワールドの並び順 | |
 | **描画・入力・検証** | | | |
 | [src/game/stage/stage.ts](../src/game/stage/stage.ts) | 165 | シーン。`StageContext` を実装し、データからシーングラフを組み立てる | |
 | [src/game/stage/stageinput.ts](../src/game/stage/stageinput.ts) | 43 | キー入力 → `StageLogic` の操作 | ここだけが `key` を読む |
-| [src/game/stage/stageview.ts](../src/game/stage/stageview.ts) | 66 | 入退場演出（マンハッタン距離による波） | `logic.time` を読むだけ |
+| [src/game/stage/stageview.ts](../src/game/stage/stageview.ts) | 51 | ステージの入退場演出 | `logic.time` を読むだけ |
+| [src/game/stage/fieldanim.ts](../src/game/stage/fieldanim.ts) | 50 | `applyWave()` / `entityAlpha()`。入退場演出の実体 | ステージと選択画面で共有 |
 | [src/game/stage/solver.ts](../src/game/stage/solver.ts) | 220 | ヘッドレスな `StageContext` 実装とソルバ | **ゲーム本体からは import されない** |
-| [scripts/verify-stages.ts](../scripts/verify-stages.ts) | 82 | `bun run verify` の本体 | |
+| [scripts/verify.ts](../scripts/verify.ts) | 120 | `bun run verify` の本体 | ステージ + 選択マップ |
 
 ## 3. 起動から 1 フレームまで
 

@@ -1,5 +1,5 @@
 import { Text, Ticker } from "pixi.js";
-import { Game } from "../game";
+import type { Game } from "../game";
 import { Scene } from "../scene";
 import { startTime } from "../../main";
 import { bodyTextStyle } from "../../common/text";
@@ -12,6 +12,16 @@ export class Fin extends Scene {
   constructor(game: Game) {
     super();
     this.game = game;
+  }
+
+  /** 再入場に備えて作り直す。Scene の入退場フック */
+  enter(): void {
+    this.time = null;
+    if(this.text !== null) {
+      this.container.removeChild(this.text);
+      this.text.destroy();
+      this.text = null;
+    }
   }
 
   update(t: Ticker): void {

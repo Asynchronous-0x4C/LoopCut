@@ -1,7 +1,7 @@
 import { Container, Ticker } from "pixi.js";
 import { Stage } from "./stage";
-import { app } from "../../main";
 import { LogicState } from "./stagelogic";
+import { applyWave, entityAlpha } from "./fieldanim";
 
 export class StageView extends Container {
   stage: Stage;
@@ -39,30 +39,14 @@ export class StageView extends Container {
   }
 
   update(t: Ticker) {
-    const time = Math.max(0, Math.min(this.stage.logic.time, 50));
-    // タイルが 1 枚だけだと max === min になるので 0 除算を避ける
-    const m = Math.max(1, this.stage.field.manhattan.max - this.stage.field.manhattan.min);
-    let s = 1;
-    switch(this.stage.logic.state) {
-      case LogicState.Start: s = 1; break;
-      case LogicState.Loop: break;
-      case LogicState.End: s = -1; break;
-    }
-    this.stage.field.tiles.forEach((v, k) => {
-      const _m = v.x + v.y - this.stage.field.manhattan.min;
-      const x = Math.max(0, 10 + (20 / m * _m) - time) / 10;
-      v.g.pivot.y = app.screen.height * x * x * x * x * s;
-    });
-    this.stage.field.lasers.forEach((v, k) => {
-      const _m = v.x + v.y - this.stage.field.manhattan.min;
-      const x = Math.max(0, 10 + (20 / m * _m) - time) / 10;
-      v.g.pivot.y = app.screen.height * x * x * x * x * s;
-    });
-    const x = Math.max(0, time - 45);
-    this.stage.player.alpha = Math.ceil(Math.sin(x * Math.PI * 0.5)) * Math.ceil(x / 3);
+    const dir = this.stage.logic.state === LogicState.End ? -1 : 1;
+    applyWave(this.stage.field, this.stage.logic.time, dir);
+
+    const alpha = entityAlpha(this.stage.logic.time);
+    this.stage.player.alpha = alpha;
     this.stage.ghosts.forEach(g => {
-      g.alpha = this.stage.player.alpha;
+      g.alpha = alpha;
     });
-    this.stage.ui.alpha = this.stage.player.alpha;
+    this.stage.ui.alpha = alpha;
   }
 }

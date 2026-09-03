@@ -1,6 +1,6 @@
 # 06. 既知の問題と技術的負債
 
-> 対象: `plus` ブランチ フェーズ 3 完了時点。
+> 対象: `plus` ブランチ フェーズ 4（選択画面）実装時点。
 > 各項目に ID を振っているので、コミットメッセージや他の文書から `L-1` の形で参照すること。
 > **修正したら末尾の「解決済み」節へ移すこと。**
 
@@ -33,13 +33,6 @@
 `MAX_GHOSTS` はゲーム本体とソルバの共通定数なので、`bun run verify` がそのまま検証してくれる。
 
 **これは `plus` で最も価値の高い拡張のひとつ**（[07-roadmap.md](07-roadmap.md) フェーズ 4）。
-
-### C-1 — `Scene` に入退場フックが無い
-**場所**: [scene.ts](../src/game/scene.ts), [game.ts](../src/game/game.ts) の `setScene()`
-
-`Fin` は `time === null` を初期化フラグに使っているため（[fin.ts](../src/game/fin/fin.ts)）、
-**2 回目に入ると初期化されない**。ステージセレクトやポーズ画面など、
-再入場するシーンを足すときは自前で `enter()` を用意する必要がある。
 
 ---
 
@@ -89,3 +82,5 @@
 | V-1 | タイル 1 枚のステージで 0 除算 | `manhattan` の幅を `Math.max(1, …)` で下限を設ける | 3 |
 | S-1 | `destroy()` が子を破棄していない | 古いツリーの破棄を `reset()` の最後に移し `{ children: true }` に。UI のドットテクスチャも使い回すよう変更 | 3 |
 | Z-13 | 補間がフレームレート依存 | `damp()`（[interpolate.ts](../src/common/interpolate.ts)）を全補間に適用 | 3 |
+| C-1 | `Scene` に入退場フックが無い | `enter()` / `exit()` を追加し `Game.setScene()` から呼ぶ。`Fin` は `enter()` で作り直す | 4 |
+| — | リロードで進捗が消える | [progress.ts](../src/common/progress.ts) で localStorage に保存 | 4 |
