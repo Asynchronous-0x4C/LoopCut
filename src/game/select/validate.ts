@@ -2,6 +2,7 @@ import { stages } from "../stage/stages";
 import { MAX_COLUMNS, MAX_ROWS, OBJECT_TYPES, PERMANENT_WALL_ID } from "../stage/stagedata";
 import { exitLabel, SELECT_ACTION_TYPES, SELECT_TILE_CHARS, SelectMapData } from "./selectdata";
 import { resolveSelectMap } from "./selectmap";
+import { isHiddenTileChar } from "./selecttiles";
 
 const TILE_CHARS = new Set<string>(SELECT_TILE_CHARS);
 
@@ -43,6 +44,9 @@ export function validateSelectMap(map: SelectMapData, allLabels: Array<string>):
     if(/^[a-z]$/.test(e.mark)) {
       problems.push(`${label}: mark '${e.mark}' は小文字（スイッチタイル）と重複しています。数字か記号にしてください`);
     }
+    if(isHiddenTileChar(e.mark)) {
+      problems.push(`${label}: mark '${e.mark}' は大文字（隠し床）と重複しています。数字か記号にしてください`);
+    }
     if(e.mark === " ") problems.push(`${label}: mark に空白は使えません`);
     if(markChars.has(e.mark)) problems.push(`${label}: mark '${e.mark}' が他の exit と重複しています`);
     markChars.add(e.mark);
@@ -63,18 +67,20 @@ export function validateSelectMap(map: SelectMapData, allLabels: Array<string>):
   let maxX = Number.NEGATIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
   const switches = new Set<string>();
+  const hiddenGroups = new Set<string>();
   const unknown = new Set<string>();
 
   map.tiles.forEach((row, y) => {
     row.split("").forEach((c, x) => {
       if(c === " ") return;
       if(resolved.markChars.has(c)) return;
-      if(!TILE_CHARS.has(c) && !/^[a-z]$/.test(c)) {
+      if(!TILE_CHARS.has(c) && !/^[a-z]$/.test(c) && !isHiddenTileChar(c)) {
         unknown.add(c);
         return;
       }
       if(c === "S") ++starts;
       if(/^[a-z]$/.test(c)) switches.add(c);
+      if(isHiddenTileChar(c)) hiddenGroups.add(c);
       minX = Math.min(minX, x);
       maxX = Math.max(maxX, x);
       minY = Math.min(minY, y);
@@ -147,8 +153,28 @@ export function validateSelectMap(map: SelectMapData, allLabels: Array<string>):
       problems.push(`${where}: 未実装の action.type です (実装済み: ${SELECT_ACTION_TYPES.join(", ")})`);
       return;
     }
+    if(e.action.type === "revealTiles") {
+      if(!hiddenGroups.has(e.action.id)) {
+        problems.push(`${where}: action.id '${e.action.id}' の隠し床が tiles にありません（大文字 1 文字で書きます）`);
+      }
+      return;
+    }
     const targeted = (map.objects ?? []).some(o => o.id === e.action.id);
     if(!targeted) problems.push(`${where}: action.id '${e.action.id}' のレーザーが objects にありません`);
+  });
+
+  // 隠し床は、それを出すイベントが無いと永遠に通れない
+  const revealed = new Set(
+    (map.events ?? []).filter(e => e.action?.type === "revealTiles").map(e => e.action.id)
+  );
+  hiddenGroups.forEach(g => {
+    if(!revealed.has(g)) problems.push(`隠し床 '${g}' を出す revealTiles イベントがありません`);
+  });
+  // マップ上のスイッチは、止めるレーザーが無いと踏んでも何も起きない
+  switches.forEach(id => {
+    if(!(map.objects ?? []).some(o => o.id === id)) {
+      problems.push(`スイッチ '${id}' に対応するレーザーが objects にありません`);
+    }
   });
 
   return problems;

@@ -15,7 +15,6 @@ import { stages } from "./stages";
 import { DEFAULT_MAX_GHOSTS, DEFAULT_STEPS, GridPosition, StageData } from "./stagedata";
 import { validateAllStages } from "./validate";
 import { createBackground } from "../../common/background";
-import { markCleared } from "../../common/progress";
 
 if(import.meta.env.DEV) validateAllStages(stages);
 
@@ -66,7 +65,7 @@ export class Stage extends Scene implements StageContext {
 
   /** ステージクリア。StageLogic から呼ばれる */
   clear() {
-    if(this.currentLabel !== "") markCleared(this.currentLabel);
+    // クリアの記録は Game が付ける。「このクリアで全ステージが揃ったか」の判定に記録前の状態が要るため
     this.game.returnToSelect(this.currentLabel);
   }
 
@@ -131,8 +130,9 @@ export class Stage extends Scene implements StageContext {
     if(init) {
       this.ghosts = [];
     } else {
-      while(this.ghosts.length >= this.maxGhosts)this.ghosts.shift();
-      this.ghosts.push(new Ghost(this.player, this.logic.remainSteps));
+      // ghosts: 0 のときに空配列を shift し続けて固まらないよう、長さも見る
+      while(this.ghosts.length > 0 && this.ghosts.length >= this.maxGhosts) this.ghosts.shift();
+      if(this.maxGhosts > 0) this.ghosts.push(new Ghost(this.player, this.logic.remainSteps));
     }
     // 生き残ったゴーストは前ループで消費済みなので、初期状態へ戻す
     this.ghosts.forEach(g => g.rewind());

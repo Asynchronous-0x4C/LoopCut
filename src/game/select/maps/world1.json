@@ -1,8 +1,16 @@
 {
   "world": 1,
   "tiles": [
-    " 1 2 3 4 5 6 7 8 9",
-    "S&#&#&#&#&#&#&#&#&"
+    "    5      6",
+    "    &######&##",
+    "    #     #  #",
+    "4&#####A  #  &7",
+    "  B    A 8&  #",
+    "  B    #  #  #",
+    "  a    &3 #  #",
+    "       #  b @&@",
+    " S#&##&#### @9@",
+    "   1  2"
   ],
   "exits": [
     { "mark": "1", "stage": 0 },
@@ -18,15 +26,35 @@
   "objects": [
     {
       "type": "laser",
-      "id": "g",
-      "position": { "x": 6.5, "y": 1 }
+      "id": "a",
+      "position": { "x": 7.5, "y": 1 }
+    },
+    {
+      "type": "laser",
+      "id": "b",
+      "position": { "x": 7.5, "y": 8 }
+    },
+    {
+      "type": "laser",
+      "id": "f",
+      "position": { "x": 13, "y": 6.5 }
     }
   ],
   "events": [
     {
-      "id": "world1-gate",
+      "id": "world1-path-north",
       "when": { "clearedCount": 3 },
-      "action": { "type": "openLaser", "id": "g" }
+      "action": { "type": "revealTiles", "id": "A" }
+    },
+    {
+      "id": "world1-path-nook",
+      "when": { "cleared": ["1-4", "1-5"] },
+      "action": { "type": "revealTiles", "id": "B" }
+    },
+    {
+      "id": "world1-final",
+      "when": { "clearedCount": 8 },
+      "action": { "type": "openLaser", "id": "f" }
     }
   ]
 }

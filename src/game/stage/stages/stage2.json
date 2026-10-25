@@ -1,16 +1,14 @@
 {
-  "steps": 4,
+  "steps": 3,
   "tiles": [
-    "a###S###G"
+    "SaG",
+    "## "
   ],
   "objects": [
     {
       "type": "laser",
       "id": "a",
-      "position": {
-        "x": 7.5,
-        "y": 0
-      }
+      "position": { "x": 0.5, "y": 0 }
     }
   ]
 }

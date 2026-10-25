@@ -64,8 +64,8 @@ export class Sim implements StageContext {
     if(init) {
       this.ghosts = [];
     } else {
-      while(this.ghosts.length >= maxGhosts) this.ghosts.shift();
-      this.ghosts.push(new Ghost(this.player, this.logic.remainSteps));
+      while(this.ghosts.length > 0 && this.ghosts.length >= maxGhosts) this.ghosts.shift();
+      if(maxGhosts > 0) this.ghosts.push(new Ghost(this.player, this.logic.remainSteps));
     }
     this.ghosts.forEach(g => g.rewind());
 
@@ -112,12 +112,17 @@ export class Sim implements StageContext {
       .map(t => `${t.key()}=${t.fingerprint()}`).sort().join("|");
     const lasers = [...this.field.lasers.values()]
       .filter(l => l.active.value).map(l => l.key()).sort().join("|");
+    // 生成時の状態（spawnKey）も混ぜる。複数ゴーストは次のループで巻き戻されるので、
+    // 「今どこにいるか」が同じでも出発点が違えば別の状態になる
     const ghosts = this.ghosts
-      .map(g => `${g.grid.x},${g.grid.y}/${g.remainSteps.value}/${g.command.join("")}`)
+      .map(g => `${g.spawnKey()}>${g.grid.x},${g.grid.y}/${g.remainSteps.value}/${g.command.join("")}`)
       .join(";");
     return [
       this.loopCount,
       `${this.player.grid.x},${this.player.grid.y}`,
+      // プレイヤーの経路も混ぜる。通ったタイルの集合と終点が同じでも、
+      // 順序が違えば次のループのゴーストの動きが変わる
+      this.player.command.join(""),
       this.logic.remainSteps,
       tiles,
       lasers,

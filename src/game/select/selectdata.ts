@@ -46,13 +46,25 @@ export interface SelectEventCondition {
  * （StageObjectData と同じ方針）。
  */
 export interface SelectEventAction {
-  /** 実装済みは "openLaser"（指定 id のレーザーを恒久的に止める）のみ */
+  /**
+   * 実装済みは次の 2 つ。
+   * - "openLaser": `id` のレーザーを恒久的に止める
+   * - "revealTiles": `id`（大文字 1 文字）の隠し床を出す
+   */
   type: string;
   id: string;
 }
 
 /** 実装済みの events[].action.type */
-export const SELECT_ACTION_TYPES = ["openLaser"] as const;
+export const SELECT_ACTION_TYPES = ["openLaser", "revealTiles"] as const;
+
+/**
+ * マップ上のスイッチを押したことを進捗に記録するときの id。
+ * イベントの再生記録（firedEvents）と同じ場所に保存する。
+ */
+export function switchEventId(world: number, id: string): string {
+  return `world${world}-switch-${id}`;
+}
 
 export interface SelectEventData {
   /** 演出を二度流さないための識別子。マップ内で一意にすること */
@@ -77,7 +89,10 @@ export interface SelectExit {
   arrow: GridPosition;
 }
 
-/** 選択マップで使うタイル文字。exits の mark はこれらと重複してはいけない */
+/**
+ * 選択マップで使うタイル文字。exits の mark はこれらと重複してはいけない。
+ * ほかに小文字 `a`〜`z`（スイッチ）と大文字 `A`〜`Z`（隠し床）もタイルになる。
+ */
 export const SELECT_TILE_CHARS = ["S", "#", "&", "@"] as const;
 
 /** ラベルを組み立てる。exits の並び順（0 始まり）を渡す */

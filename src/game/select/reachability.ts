@@ -4,7 +4,7 @@ import { createObject } from "../stage/objects";
 import { GridPosition } from "../stage/stagedata";
 import { SelectMapData } from "./selectdata";
 import { conditionMet, resolveSelectMap } from "./selectmap";
-import { selectTileRegistry } from "./selecttiles";
+import { createSelectTile, revealOrder, SelectSwitchTile } from "./selecttiles";
 
 export interface SelectReachability {
   /** 到達できた順（ウェーブごと）のラベル */
@@ -18,6 +18,7 @@ export interface SelectReachability {
  *
  * 「行ける入口をすべてクリアする → クリア状況でイベントが発動して道が開く →
  * また行ける入口が増える」を、増えなくなるまで繰り返す。
+ * 歩いて行けるマップ上のスイッチは、その場ですべて押したものとして扱う。
  * 最後まで到達できない入口が残ったら、その世界は**詰んでいる**。
  *
  * ゲーム本体と同じ `Field` / タイル / レーザーを使うので、判定がずれることはない。
@@ -29,8 +30,8 @@ export function analyzeSelectMap(map: SelectMapData): SelectReachability {
   map.tiles.forEach((row, y) => {
     row.split("").forEach((c, x) => {
       if(resolved.markChars.has(c)) return;
-      const factory = selectTileRegistry[c];
-      if(factory !== undefined) field.addTile(factory(x, y));
+      const tile = createSelectTile(c, x, y);
+      if(tile !== null) field.addTile(tile);
     });
   });
   (map.objects ?? []).forEach(v => {
@@ -47,9 +48,10 @@ export function analyzeSelectMap(map: SelectMapData): SelectReachability {
     (map.events ?? []).forEach(e => {
       if(!conditionMet(e.when, cleared)) return;
       if(e.action.type === "openLaser") field.deactivateLasers(e.action.id);
+      if(e.action.type === "revealTiles") revealOrder(field, e.action.id).forEach((_, t) => t.reveal(-1));
     });
 
-    const reachable = flood(field, start);
+    const reachable = floodPressing(field, start);
     const wave = resolved.exits
       .filter(e => !cleared.has(e.label) && reachable.has(`${e.gate.x},${e.gate.y}`))
       .map(e => e.label);
@@ -62,6 +64,22 @@ export function analyzeSelectMap(map: SelectMapData): SelectReachability {
     waves,
     unreachable: resolved.exits.filter(e => !cleared.has(e.label)).map(e => e.label)
   };
+}
+
+/** 行けるスイッチを押しながら、増えなくなるまで歩いて行ける範囲を広げる */
+function floodPressing(field: Field, start: GridPosition): Set<string> {
+  for(;;) {
+    const seen = flood(field, start);
+    let pressed = false;
+    seen.forEach(key => {
+      const t = field.tiles.get(key);
+      if(t instanceof SelectSwitchTile && !t.pushed.value) {
+        t.onEnter(true);
+        pressed = true;
+      }
+    });
+    if(!pressed) return seen;
+  }
 }
 
 /** start から歩いて行けるタイルの集合 */

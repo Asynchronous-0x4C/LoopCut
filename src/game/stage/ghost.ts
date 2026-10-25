@@ -59,6 +59,11 @@ export class Ghost extends Entity {
     this.remainSteps.value = this.spawnRemain;
   }
 
+  /** 生成されたときの状態を表す文字列。ソルバが状態を区別するために使う */
+  spawnKey(): string {
+    return `${this.spawn.x},${this.spawn.y}/${this.spawnCommand.join("")}/${this.spawnRemain}`;
+  }
+
   get solid(): boolean {
     return this.remainSteps.value > 0;
   }

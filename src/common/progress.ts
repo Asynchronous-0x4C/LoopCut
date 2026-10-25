@@ -5,7 +5,12 @@
  * 読み込みは必ず検証してから使い、失敗したら初期状態に戻す。
  */
 
-const STORAGE_KEY = "loopcut.progress.v1";
+/**
+ * v2: ステージを作り直したので、旧ステージのクリア記録が新しい同じ番号のステージに
+ * 引き継がれないよう、キーを変えて全員最初からにした。古いキーは読み込み時に消す。
+ */
+const STORAGE_KEY = "loopcut.progress.v2";
+const OLD_STORAGE_KEYS = ["loopcut.progress.v1"];
 
 export interface Progress {
   /** クリア済みステージのラベル（"1-1" など） */
@@ -28,6 +33,7 @@ export function loadProgress(): Progress {
   if(cache !== null) return cache;
   cache = empty();
   try {
+    OLD_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
     const raw = localStorage.getItem(STORAGE_KEY);
     if(raw !== null) {
       const parsed: unknown = JSON.parse(raw);

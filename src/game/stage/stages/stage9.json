@@ -1,9 +1,9 @@
 {
-  "steps": 5,
+  "steps": 4,
   "tiles": [
-    " S ",
-    "a=b",
-    " G "
+    "   a",
+    "bG =",
+    "###S"
   ],
   "objects": [
     {
@@ -14,7 +14,7 @@
     {
       "type": "laser",
       "id": "b",
-      "position": { "x": 0.5, "y": 1 }
+      "position": { "x": 3, "y": 0.5 }
     }
   ]
 }

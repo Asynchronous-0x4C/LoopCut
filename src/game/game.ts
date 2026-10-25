@@ -7,11 +7,13 @@ import { Fin } from "./fin/fin";
 import { Select } from "./select/select";
 import { selectMaps } from "./select/maps";
 import { allStageLabels } from "./select/validate";
-import { isCleared } from "../common/progress";
+import { isCleared, markCleared } from "../common/progress";
 
 export class Game {
   scenes: Map<string,Scene> = new Map();
   current: string = "";
+  /** 最後にクリアしたステージのラベル。クリア画面からマップへ戻るときにその入口へ立たせる */
+  private lastCleared: string = "";
 
   constructor(){
     this.scenes.set("title",new Title(this));
@@ -56,14 +58,32 @@ export class Game {
     if(stage instanceof Stage) stage.load(index, label);
   }
 
-  /** ステージをクリアして選択画面へ戻る。全ステージ制覇していたらクリア画面へ */
+  /**
+   * ステージをクリアして選択画面へ戻る。
+   * **このクリアで初めて全ステージが揃ったときだけ**クリア画面へ行く。
+   * 「全部クリア済みか」だけで判定すると、全クリア後に遊び直したステージを
+   * クリアするたびにクリア画面へ飛んでしまう。
+   */
   returnToSelect(clearedLabel: string) {
-    if(allStageLabels(selectMaps).every(isCleared)) {
+    const labels = allStageLabels(selectMaps);
+    const wasComplete = labels.every(isCleared);
+    if(clearedLabel !== "") markCleared(clearedLabel);
+    this.lastCleared = clearedLabel;
+    if(!wasComplete && labels.every(isCleared)) {
       this.setScene("fin");
       return;
     }
+    this.showSelectAt(clearedLabel);
+  }
+
+  /** クリア画面から選択画面へ戻る */
+  leaveFin() {
+    this.showSelectAt(this.lastCleared);
+  }
+
+  private showSelectAt(label: string) {
     const select = this.scenes.get("select");
-    if(select instanceof Select) select.prepareReturn(clearedLabel);
+    if(select instanceof Select) select.prepareReturn(label);
     this.setScene("select");
   }
 

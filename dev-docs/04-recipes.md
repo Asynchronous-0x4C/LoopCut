@@ -60,7 +60,7 @@ initGraphics(g: Graphics, pushed: boolean = this.pushed?.value ?? false): void {
 
 > **この例（`DoubleTile` / 文字 `=`）は実装済み。**
 > [tiles.ts](../src/game/stage/tiles.ts) の `DoubleTile` と
-> [stage9.json](../src/game/stage/stages/stage9.json) が実物なので、
+> [stage8.json](../src/game/stage/stages/stage8.json) が実物なので、
 > 手を動かす前に読むとはやい。自分のタイルを足すときは別の文字を選ぶこと。
 
 ### A-1. タイルクラスを書く
@@ -163,7 +163,7 @@ export const TILE_CHARS = ["S", "G", "#", "@", "="] as const;   // ← 追加
 - [ ] 新しい文字を使ったテストステージを 1 つ作り、`bun run verify` で解けることを確認
 - [ ] **その仕掛けが本当に必要か確かめる。** 新しい文字を `#` に置き換えたデータを
       ソルバにかけ、解けなくなる（またはループ数が増える）ことを見る。
-      ステージ 9 はこれで「`#` だと解なし」を確認してある
+      ステージ 8 はこれで「`#` だと解なし」を確認してある
 - [ ] 手順を `KNOWN_ROUTES` に固定する
 - [ ] `bun run dev` で見た目を確認（2 回目通過後に変化するか）
 

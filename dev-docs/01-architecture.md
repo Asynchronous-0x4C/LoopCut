@@ -36,10 +36,13 @@ flowchart LR
   T[Title] --> S[Select]
   S -->|矢印の向きへ移動| G[Stage]
   G -->|クリア| S
-  G -.->|全ステージ制覇| F[Fin]
+  G -.->|このクリアで初めて全ステージ制覇| F[Fin]
+  F -->|キー| S
 ```
 
-遷移は `Game.openSelect()` / `Game.playStage()` / `Game.returnToSelect()` が仲介する。
+遷移は `Game.openSelect()` / `Game.playStage()` / `Game.returnToSelect()` / `Game.leaveFin()` が仲介する。
+クリアの記録（`markCleared`）も `Game.returnToSelect()` が付ける。
+「このクリアで全ステージが揃ったか」を判定するのに、記録前の状態が要るため。
 **シーン同士は互いを import しない**（`Stage` と `Select` の循環参照を避けるため）。
 `Scene` には `enter()` / `exit()` があり、再入場する画面の初期化はコンストラクタではなくそこに書く。
 
@@ -88,13 +91,13 @@ flowchart LR
 | [src/game/stage/stages/index.ts](../src/game/stage/stages/index.ts) | 27 | **プレイ順のステージ配列**。ここの並びが順序の正 | |
 | [src/game/stage/validate.ts](../src/game/stage/validate.ts) | 125 | ステージデータの検証 | dev サーバ起動時と `bun run verify` |
 | **選択画面** | | | |
-| [src/game/select/select.ts](../src/game/select/select.ts) | 323 | 選択画面シーン。組み立て・移動・イベント演出 | 書式は [08](08-select-format.md) |
-| [src/game/select/selectdata.ts](../src/game/select/selectdata.ts) | 86 | 選択マップの型と `exitLabel()` | |
+| [src/game/select/select.ts](../src/game/select/select.ts) | 368 | 選択画面シーン。組み立て・移動・イベント演出・スイッチ | 書式は [08](08-select-format.md) |
+| [src/game/select/selectdata.ts](../src/game/select/selectdata.ts) | 101 | 選択マップの型と `exitLabel()` | |
 | [src/game/select/selectmap.ts](../src/game/select/selectmap.ts) | 108 | **マップの読み方（純粋関数）**。入口・開始位置・条件判定 | シーンと検証が共有する |
-| [src/game/select/selecttiles.ts](../src/game/select/selecttiles.ts) | 133 | `FreeTile` / `BlockedTile` / `StageTile` / `ExitArrow` + レジストリ | 踏んでも `Used` にならない |
+| [src/game/select/selecttiles.ts](../src/game/select/selecttiles.ts) | 245 | `FreeTile` / `BlockedTile` / `StageTile` / `SelectSwitchTile` / `HiddenTile` / `ExitArrow` + `createSelectTile()` | 踏んでも `Used` にならない |
 | [src/game/select/selectview.ts](../src/game/select/selectview.ts) | 140 | カメラ、ステージ番号ラベル、入退場アニメ | |
-| [src/game/select/validate.ts](../src/game/select/validate.ts) | 168 | 選択マップの検証 | |
-| [src/game/select/reachability.ts](../src/game/select/reachability.ts) | 90 | **地形ロックで詰まないかの解析** | ゲーム本体と同じ Field を使う |
+| [src/game/select/validate.ts](../src/game/select/validate.ts) | 194 | 選択マップの検証 | |
+| [src/game/select/reachability.ts](../src/game/select/reachability.ts) | 108 | **地形ロックで詰まないかの解析** | ゲーム本体と同じ Field を使う |
 | [src/game/select/maps/index.ts](../src/game/select/maps/index.ts) | 12 | ワールドの並び順 | |
 | **描画・入力・検証** | | | |
 | [src/game/stage/stage.ts](../src/game/stage/stage.ts) | 156 | シーン。`StageContext` を実装し、データからシーングラフを組み立てる | |

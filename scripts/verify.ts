@@ -13,7 +13,7 @@
 import { stages } from "../src/game/stage/stages";
 import { validateStage } from "../src/game/stage/validate";
 import { formatMoves, playRoute, solve } from "../src/game/stage/solver";
-import { DEFAULT_MAX_GHOSTS, DEFAULT_STEPS } from "../src/game/stage/stagedata";
+import { DEFAULT_MAX_GHOSTS, DEFAULT_STEPS, StageData } from "../src/game/stage/stagedata";
 import { selectMaps } from "../src/game/select/maps";
 import { allStageLabels, validateSelectMap } from "../src/game/select/validate";
 import { analyzeSelectMap } from "../src/game/select/reachability";
@@ -29,10 +29,10 @@ const EXPECTED_LOOPS: Record<number, number> = {
   3: 2,
   4: 2,
   5: 2,
-  6: 2,
-  7: 4,
-  8: 3,
-  9: 2
+  6: 3,
+  7: 3,
+  8: 2,
+  9: 3
 };
 
 /**
@@ -40,20 +40,46 @@ const EXPECTED_LOOPS: Record<number, number> = {
  *
  * ソルバは解の存在しか見ないので、**別解があると意図した手順が壊れても気づけない**。
  * 実際、詰み判定がレーザーを見るようになったとき（L-1）、
- * ステージ 4 の本来の解法 `SDWDSAA` が壊れたのに別解 `DSDWAA` のせいで検出できなかった。
- * ルールの意図を守りたい手順は、ここに書いておくこと。
+ * 旧ステージ 4 の本来の解法 `SDWDSAA` が壊れたのに別解 `DSDWAA` のせいで検出できなかった。
+ * ステージごとの「解くのに要る気づき」を、ここに手順として固定しておくこと。
  */
 const KNOWN_ROUTES: Record<number, Array<string>> = {
-  // ゴーストがスイッチを踏んでレーザーが開くのを待ってから進む手順。
-  // 詰み判定をゴーストの移動より前に戻すと、これが壊れる。
-  4: ["SDWDSAA", "DSDWAA"],
+  // 遠回りして歩数を使い切ってからスイッチに乗る。ゴーストが実体を持たないので道を塞がない
+  3: ["DSDWDDDW"],
+  // ゴーストがスイッチに着くまで、遠回りして時間を稼いでからレーザーを越える
+  4: ["DDDWASA"],
+  // 壁に体当たりしてスイッチの上でループを終える
+  5: ["DSSSSD"],
+  // 3 ループ目、実体のあるゴーストがレーザー a にぶつかる前に自分で a を踏んで通してやる
+  6: ["DSAASDWW"],
   // 2 体のゴーストがそれぞれスイッチを押さえ続ける手順。
   // ゴーストの巻き戻し（Ghost.rewind）が壊れると、どちらも通らなくなる。
-  8: ["AADDSS", "DDAASS"],
+  7: ["AADDSS", "DDAASS"],
   // 中央の `=` を 1 ループで 2 回通る手順。
   // Tile.fingerprint() が remain を含めないと、ソルバがこの解を取りこぼす。
-  9: ["SDAASS"]
+  8: ["SDAASS"],
+  // `=` に戻って終えることで、ゴーストがレーザー b を越える時点で実体を失っている
+  9: ["AAAWWWSAAW"]
 };
+
+/**
+ * ステージの中身と無関係に、**ルールそのもの**を固定するための盤面。
+ * ステージを作り直しても、ここに書いた挙動の回帰は検出できる。
+ */
+const RULE_FIXTURES: Array<{ name: string, data: StageData, routes: Array<string> }> = [
+  {
+    // 自機が行き止まりに入った同じターンに、ゴーストがスイッチを踏んでレーザーを開ける。
+    // 歩数切れ・詰みの判定をゴーストの移動より前に戻すと、`SDWDSAA` が壊れる
+    // （dev-docs/02-game-rules.md §7）。旧ステージ 1-4 の盤面。
+    name: "ghost-opens-same-turn",
+    data: {
+      steps: 5,
+      tiles: ["G#S#a", "  ###"],
+      objects: [{ type: "laser", id: "a", position: { x: 0.5, y: 0 } }]
+    },
+    routes: ["SDWDSAA", "DSDWAA"]
+  }
+];
 
 /** 何ループまで探索するか */
 const MAX_LOOPS = 5;
@@ -106,6 +132,17 @@ stages.forEach((data, i) => {
   report(problems.length === 0,
     `${name.padEnd(8)} ${shape.padEnd(7)} steps=${String(steps).padEnd(3)} ghosts=${ghosts} ${summary}`,
     problems);
+});
+
+// --- ルールの固定盤面 ---
+console.log("\nルール");
+RULE_FIXTURES.forEach(f => {
+  const problems: Array<string> = [];
+  f.routes.forEach(route => {
+    const r = playRoute(f.data, route);
+    if(!r.cleared) problems.push(`手順 ${route} がクリアできなくなりました（${r.played} 手目で停止）`);
+  });
+  report(problems.length === 0, `${f.name}  routes=${f.routes.join(" ")}`, problems);
 });
 
 // --- 選択マップ ---

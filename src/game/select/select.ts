@@ -13,10 +13,18 @@ import {
   exitLabel,
   SelectEventData,
   SelectExit,
-  SelectMapData
+  SelectMapData,
+  switchEventId
 } from "./selectdata";
 import { conditionMet, resolveSelectMap } from "./selectmap";
-import { ExitArrow, selectTileRegistry, StageTile } from "./selecttiles";
+import {
+  createSelectTile,
+  ExitArrow,
+  HiddenTile,
+  revealOrder,
+  SelectSwitchTile,
+  StageTile
+} from "./selecttiles";
 import { SelectView } from "./selectview";
 import { validateAllSelectMaps } from "./validate";
 import { createBackground } from "../../common/background";
@@ -153,8 +161,8 @@ export class Select extends Scene {
       row.split("").forEach((c, x) => {
         // マークのマスは描画しない。矢印の向きとステージの決定にだけ使う
         if(resolved.markChars.has(c)) return;
-        const factory = selectTileRegistry[c];
-        if(factory !== undefined) this.field.addTile(factory(x, y));
+        const tile = createSelectTile(c, x, y);
+        if(tile !== null) this.field.addTile(tile);
       });
     });
 
@@ -166,6 +174,7 @@ export class Select extends Scene {
     this.exits = resolved.exits;
     this.arrows = this.exits.map(e => new ExitArrow(e.arrow.x, e.arrow.y, e.dir));
     this.markClearedTiles();
+    this.restoreSwitches();
 
     let start = resolved.start;
     if(start === null) {
@@ -201,6 +210,15 @@ export class Select extends Scene {
     });
   }
 
+  /** 前回までに押したマップ上のスイッチを、演出なしで押し直す */
+  private restoreSwitches() {
+    this.field.tiles.forEach(t => {
+      if(t instanceof SelectSwitchTile && hasFired(switchEventId(this.map.world, t.id))) {
+        t.onEnter(true);
+      }
+    });
+  }
+
   // --- イベント ---
 
   private collectEvents() {
@@ -217,10 +235,23 @@ export class Select extends Scene {
     });
   }
 
-  private applyEvent(e: SelectEventData) {
+  /**
+   * イベントの効果を適用する。
+   * @param animate 演出つきか。false なら隠し床も一瞬で出す（演出済みのイベント）
+   */
+  private applyEvent(e: SelectEventData, animate: boolean = false) {
     switch(e.action.type) {
       case "openLaser":
         this.field.deactivateLasers(e.action.id);
+        break;
+      case "revealTiles":
+        revealOrder(this.field, e.action.id).forEach((order, t) => t.reveal(animate ? order : -1));
+        break;
+      case "pressSwitch":
+        // マップ上のスイッチを踏んだときに Select 自身が作るイベント（データには書かない）
+        this.field.tiles.forEach(t => {
+          if(t instanceof SelectSwitchTile && t.id === e.action.id) t.onEnter(true);
+        });
         break;
       default: break;
     }
@@ -229,6 +260,16 @@ export class Select extends Scene {
   /** イベントの対象位置。カメラを寄せる先 */
   private eventFocus(e: SelectEventData): GridPosition|null {
     if(e.focus !== undefined) return e.focus;
+    if(e.action.type === "revealTiles") {
+      // 現れる床の重心
+      const tiles = [...this.field.tiles.values()]
+        .filter(t => t instanceof HiddenTile && t.group === e.action.id);
+      if(tiles.length === 0) return null;
+      return {
+        x: tiles.reduce((v, t) => v + t.x, 0) / tiles.length,
+        y: tiles.reduce((v, t) => v + t.y, 0) / tiles.length
+      };
+    }
     for(const l of this.field.lasers.values()) {
       if(l.id === e.action.id) return { x: l.x, y: l.y };
     }
@@ -258,7 +299,7 @@ export class Select extends Scene {
     this.eventTime += t.deltaTime;
 
     if(!this.eventApplied && this.eventTime >= EVENT_APPLY_AT) {
-      this.applyEvent(e);
+      this.applyEvent(e, true);
       markFired(e.id);
       this.eventApplied = true;
     }
@@ -306,6 +347,16 @@ export class Select extends Scene {
 
     this.player.move(dir);
     this.updateLabel();
+
+    // まだ押されていないスイッチを踏んだら、扉が開くところをカメラで見せる
+    if(t instanceof SelectSwitchTile && !t.pushed.value) {
+      this.pendingEvents.push({
+        id: switchEventId(this.map.world, t.id),
+        when: {},
+        action: { type: "pressSwitch", id: t.id }
+      });
+      this.beginNextEventOrPlay();
+    }
     return true;
   }
 
